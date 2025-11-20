@@ -1,0 +1,14 @@
+# Minimal Tenant manifest for a remote cluster (no clusterRef; apply directly on that cluster)
+apiVersion: platform.example.com/v1alpha1
+kind: Tenant
+metadata:
+  name: demo-remote-tenant
+  namespace: default  # Namespace where the Tenant object lives (and where Helm release will be installed)
+spec:
+  workspace: demo-workspace
+  chart:
+    repo: https://charts.jetstack.io
+    name: cert-manager
+    version: 1.19.1
+    values:
+      replicaCount: 1

@@ -1,0 +1,16 @@
+apiVersion: platform.example.com/v1alpha1
+kind: Tenant
+metadata:
+  name: acme4
+  namespace: default
+spec:
+  clusterRef:
+    secretName: acme-remote-kubeconfig
+    secretNamespace: cryptoedge-operator
+  workspace: acme-workspace4
+  chart:
+    repo: https://charts.jetstack.io
+    name: cert-manager
+    version: 1.19.1
+    values:
+      replicaCount: 1

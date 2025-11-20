@@ -1,0 +1,518 @@
+package multicluster
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/Masterminds/semver/v3"
+
+	platformv1alpha1 "github.com/cryptoedge/cryptoedgeoperator/api/v1alpha1"
+
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	mcbuilder "sigs.k8s.io/multicluster-runtime/pkg/builder"
+	mcmanager "sigs.k8s.io/multicluster-runtime/pkg/manager"
+	mcreconcile "sigs.k8s.io/multicluster-runtime/pkg/reconcile"
+	kubeconfigprovider "sigs.k8s.io/multicluster-runtime/providers/kubeconfig"
+
+	action "helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/cli"
+
+	helmutil "github.com/cryptoedge/cryptoedgeoperator/internal/helmutil"
+)
+
+// RunMulticlusterExample starts a multicluster manager that reconciles Tenants across discovered clusters.
+func RunMulticlusterExample() {
+	var namespace string
+	var kubeconfigSecretLabel string
+	var kubeconfigSecretKey string
+
+	flag.StringVar(&namespace, "namespace", "default", "Namespace where kubeconfig secrets are stored")
+	flag.StringVar(&kubeconfigSecretLabel, "kubeconfig-label", "sigs.k8s.io/multicluster-runtime-kubeconfig",
+		"Label used to identify secrets containing kubeconfig data")
+	flag.StringVar(&kubeconfigSecretKey, "kubeconfig-key", "kubeconfig", "Key in the secret data that contains the kubeconfig")
+	opts := zap.Options{Development: true}
+	opts.BindFlags(flag.CommandLine)
+	flag.Parse()
+
+	ctrllog.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	entryLog := ctrllog.Log.WithName("multicluster-entrypoint")
+	ctx := ctrl.SetupSignalHandler()
+
+	entryLog.Info("Starting multicluster example", "namespace", namespace, "kubeconfigSecretLabel", kubeconfigSecretLabel)
+
+	// Ensure a self kubeconfig secret exists so the provider at least manages the local cluster if user hasn't created one.
+	// This uses the in-cluster (or local) rest.Config to synthesise a kubeconfig and store it as a labeled secret.
+	hostCfg := ctrl.GetConfigOrDie()
+	if err := ensureSelfKubeconfigSecret(ctx, hostCfg, namespace, kubeconfigSecretLabel, kubeconfigSecretKey); err != nil {
+		entryLog.Error(err, "failed to ensure self kubeconfig secret")
+	}
+
+	// Create scheme including core and platform (Tenant) types prior to provider & manager creation.
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = platformv1alpha1.AddToScheme(scheme)
+
+	providerOpts := kubeconfigprovider.Options{
+		Namespace:             namespace,
+		KubeconfigSecretLabel: kubeconfigSecretLabel,
+		KubeconfigSecretKey:   kubeconfigSecretKey,
+		// Critical: propagate our scheme (with Tenant type) into every discovered cluster.
+		// Without this, cluster engagement fails when the multicluster manager attempts
+		// to start watches for platformv1alpha1.Tenant because the cluster's scheme
+		// only contains core types.
+		ClusterOptions: []cluster.Option{func(o *cluster.Options) { o.Scheme = scheme }},
+	}
+	provider := kubeconfigprovider.New(providerOpts)
+
+	managerOpts := mcmanager.Options{Metrics: metricsserver.Options{BindAddress: "0"}, Scheme: scheme}
+	mgr, err := mcmanager.New(ctrl.GetConfigOrDie(), provider, managerOpts)
+	if err != nil {
+		entryLog.Error(err, "Unable to create multicluster manager")
+		os.Exit(1)
+	}
+	if err := provider.SetupWithManager(ctx, mgr); err != nil {
+		entryLog.Error(err, "Unable to setup provider")
+		os.Exit(1)
+	}
+	// Scheme already contains Tenant; we will fetch and update Tenants directly per engaged cluster (no shadow model).
+
+	// Multicluster Tenant controller – installs/updates Helm release per cluster.
+	if err := mcbuilder.ControllerManagedBy(mgr).
+		Named("multicluster-tenants").
+		For(&platformv1alpha1.Tenant{}).
+		Complete(mcreconcile.Func(func(ctx context.Context, req mcreconcile.Request) (ctrl.Result, error) {
+			log := ctrllog.FromContext(ctx).WithValues("cluster", req.ClusterName, "tenant", req.Request.NamespacedName)
+			cl, err := mgr.GetCluster(ctx, req.ClusterName)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			// Defensive: ensure Tenant type registered in scheme (in case of edge re-engagement scenarios).
+			_ = platformv1alpha1.AddToScheme(cl.GetScheme())
+			// Ensure CRD exists on this cluster before attempting to fetch local Tenant objects.
+			if err := EnsureTenantCRD(ctx, cl.GetClient()); err != nil {
+				log.Error(err, "ensure Tenant CRD failed")
+				return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+			}
+			// Fetch Tenant from THIS cluster (model: each cluster stores its own Tenant objects; no home shadow propagation).
+			tenant := &platformv1alpha1.Tenant{}
+			if err := cl.GetClient().Get(ctx, req.Request.NamespacedName, tenant); err != nil {
+				if apierrors.IsNotFound(err) {
+					return ctrl.Result{}, nil
+				}
+				return ctrl.Result{}, err
+			}
+			// If clusterRef specified (non-nil) and secretName targets a different cluster, skip.
+			if tenant.Spec.ClusterRef != nil && tenant.Spec.ClusterRef.SecretName != "" && tenant.Spec.ClusterRef.SecretName != req.ClusterName {
+				log.V(1).Info("skipping cluster due to clusterRef", "cluster", req.ClusterName, "target", tenant.Spec.ClusterRef.SecretName)
+				return ctrl.Result{}, nil
+			}
+			wsName := tenant.Spec.Workspace
+			ns := &corev1.Namespace{}
+			if err := cl.GetClient().Get(ctx, client.ObjectKey{Name: wsName}, ns); err != nil {
+				if apierrors.IsNotFound(err) {
+					create := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wsName}}
+					if err2 := cl.GetClient().Create(ctx, create); err2 != nil {
+						log.Error(err2, "failed to create workspace namespace", "workspace", wsName)
+						return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+					}
+					log.Info("workspace namespace created", "workspace", wsName)
+				} else {
+					return ctrl.Result{}, err
+				}
+			} else {
+				log.Info("workspace namespace exists", "workspace", wsName)
+			}
+			releaseName := fmt.Sprintf("tenant-%s-%s", tenant.Name, req.ClusterName)
+			chartRef := tenant.Spec.Chart
+			// Fingerprint spec + chart values for idempotency per cluster.
+			fpHasher := sha256.New()
+			fpHasher.Write([]byte(chartRef.Repo))
+			fpHasher.Write([]byte("|"))
+			fpHasher.Write([]byte(chartRef.Name))
+			fpHasher.Write([]byte("|"))
+			fpHasher.Write([]byte(chartRef.Version))
+			// Deterministic iteration of values keys
+			valKeys := make([]string, 0, len(chartRef.Values))
+			for k := range chartRef.Values {
+				valKeys = append(valKeys, k)
+			}
+			sort.Strings(valKeys)
+			for _, k := range valKeys {
+				fpHasher.Write([]byte("|"))
+				fpHasher.Write([]byte(k))
+				fpHasher.Write([]byte("="))
+				fpHasher.Write([]byte(fmt.Sprintf("%v", chartRef.Values[k])))
+			}
+			fingerprint := hex.EncodeToString(fpHasher.Sum(nil))
+			annoKey := fmt.Sprintf("platform.example.com/fingerprint-%s", req.ClusterName)
+			prevFP := tenant.Annotations[annoKey]
+			if tenant.Annotations == nil {
+				tenant.Annotations = map[string]string{}
+			}
+			settings := cli.New()
+			// Build helm action.Configuration using remote cluster rest.Config.
+			remoteCfg := cl.GetConfig()
+			getter := helmutil.NewRemoteRESTClientGetter(remoteCfg)
+			aCfg := new(action.Configuration)
+			if err := aCfg.Init(getter, wsName, os.Getenv("HELM_DRIVER"), func(format string, v ...any) { log.V(1).Info(fmt.Sprintf(format, v...)) }); err != nil {
+				log.Error(err, "helm configuration init failed")
+				return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+			}
+			var loaded *chart.Chart
+			versionValid := true
+			if chartRef.Version != "" {
+				if _, err := semver.NewVersion(chartRef.Version); err != nil {
+					versionValid = false
+					log.Error(err, "chart version invalid", "version", chartRef.Version)
+				}
+			}
+			var locateErr error
+			if chartRef.Repo != "" && versionValid {
+				_ = os.MkdirAll(settings.RepositoryCache, 0o755)
+				_ = os.MkdirAll(settings.RepositoryConfig, 0o755)
+				cp := &action.ChartPathOptions{RepoURL: chartRef.Repo, Version: chartRef.Version}
+				loc, err := cp.LocateChart(chartRef.Name, settings)
+				if err != nil {
+					locateErr = err
+					log.Error(err, "locate chart failed")
+				} else if c, err2 := loader.Load(loc); err2 == nil {
+					loaded = c
+				} else {
+					locateErr = err2
+					log.Error(err2, "chart load failed", "loc", loc)
+				}
+			}
+			values := map[string]any{}
+			for k, v := range chartRef.Values {
+				values[k] = v
+			}
+			list := action.NewList(aCfg)
+			list.All = true
+			installed := false
+			if rels, err := list.Run(); err == nil {
+				for _, r := range rels {
+					if r.Name == releaseName && r.Namespace == wsName {
+						installed = true
+						break
+					}
+				}
+			}
+			// Helper to upsert per-cluster condition.
+			upsertCondition := func(cond metav1.Condition) {
+				found := false
+				for i := range tenant.Status.Conditions {
+					c := tenant.Status.Conditions[i]
+					if c.Type == cond.Type && c.ObservedGeneration == tenant.Generation && c.Message == cond.Message && c.Reason == cond.Reason && c.Status == cond.Status {
+						// identical; keep existing LastTransitionTime
+						found = true
+						break
+					}
+					if c.Type == cond.Type {
+						// replace
+						tenant.Status.Conditions[i] = cond
+						found = true
+						break
+					}
+				}
+				if !found {
+					tenant.Status.Conditions = append(tenant.Status.Conditions, cond)
+				}
+			}
+			condReadyType := fmt.Sprintf("ClusterReady/%s", req.ClusterName)
+			condErrorType := fmt.Sprintf("ClusterError/%s", req.ClusterName)
+			if prevFP == fingerprint && installed {
+				log.Info("fingerprint unchanged; skipping helm upgrade", "release", releaseName)
+				upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "NoChange", Message: "release up-to-date", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+				// Phase aggregation later after helm logic.
+				goto PhaseAggregate
+			}
+			if !installed && loaded != nil {
+				inst := action.NewInstall(aCfg)
+				inst.ReleaseName = releaseName
+				inst.Namespace = wsName
+				if _, err := inst.Run(loaded, values); err != nil {
+					log.Error(err, "helm install failed")
+					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "InstallFailed", Message: err.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+					goto PhaseAggregate
+				}
+				log.Info("helm install success", "release", releaseName)
+				tenant.Annotations[annoKey] = fingerprint
+				if err := cl.GetClient().Update(ctx, tenant); err != nil {
+					log.Error(err, "failed to update tenant annotation with fingerprint")
+				}
+				upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "Installed", Message: "release installed", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+			} else if installed && loaded != nil {
+				up := action.NewUpgrade(aCfg)
+				up.Namespace = wsName
+				if _, err := up.Run(releaseName, loaded, values); err != nil {
+					log.Error(err, "helm upgrade failed")
+					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "UpgradeFailed", Message: err.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+					goto PhaseAggregate
+				}
+				log.Info("helm upgrade success", "release", releaseName)
+				tenant.Annotations[annoKey] = fingerprint
+				if err := cl.GetClient().Update(ctx, tenant); err != nil {
+					log.Error(err, "failed to update tenant annotation with fingerprint")
+				}
+				upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "Upgraded", Message: "release upgraded", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+			} else {
+				if !versionValid {
+					log.Info("chart version invalid; skipping helm action", "version", chartRef.Version)
+					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "VersionInvalid", Message: "chart version invalid", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+				} else if locateErr != nil && strings.Contains(strings.ToLower(locateErr.Error()), "invalid_reference") {
+					log.Info("chart version not found in repo", "version", chartRef.Version)
+					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "VersionNotFound", Message: "chart version not found in repository", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+				} else {
+					log.Info("chart not loaded; skipping helm action", "repo", chartRef.Repo)
+					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "ChartNotLoaded", Message: "chart not loaded; repo unreachable?", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+				}
+			}
+		PhaseAggregate:
+			// Aggregate overall Phase:
+			phase := platformv1alpha1.TenantPhasePending
+			hasError := false
+			hasReady := false
+			for _, c := range tenant.Status.Conditions {
+				if strings.HasPrefix(c.Type, "ClusterError/") && c.Status == metav1.ConditionTrue {
+					hasError = true
+				}
+				if strings.HasPrefix(c.Type, "ClusterReady/") && c.Status == metav1.ConditionTrue {
+					hasReady = true
+				}
+			}
+			if hasError {
+				phase = platformv1alpha1.TenantPhaseError
+			} else if hasReady {
+				phase = platformv1alpha1.TenantPhaseReady
+			}
+			tenant.Status.Phase = phase
+			// Retry status update (rate limiter/context cancellations can occur under load).
+			updateErr := func() error {
+				var lastErr error
+				for i := 0; i < 3; i++ {
+					// Short timeout per attempt to avoid hanging entire reconcile.
+					uCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+					lastErr = cl.GetClient().Status().Update(uCtx, tenant)
+					cancel()
+					if lastErr == nil {
+						return nil
+					}
+					if strings.Contains(lastErr.Error(), "context canceled") {
+						// Backoff a bit; underlying rate limiter may be throttling.
+						time.Sleep(500 * time.Millisecond)
+						continue
+					}
+					// For other errors, still retry but shorter backoff.
+					time.Sleep(250 * time.Millisecond)
+				}
+				return lastErr
+			}()
+			if updateErr != nil {
+				log.Error(updateErr, "failed to update tenant status phase/conditions after retries")
+				return ctrl.Result{RequeueAfter: 45 * time.Second}, nil
+			}
+			return ctrl.Result{}, nil
+		})); err != nil {
+		entryLog.Error(err, "unable to create multicluster tenant controller")
+		os.Exit(1)
+	}
+
+	if err := mgr.Start(ctx); err != nil && !errors.Is(err, context.Canceled) {
+		entryLog.Error(err, "unable to start multicluster manager")
+		os.Exit(1)
+	}
+}
+
+// ensureSelfKubeconfigSecret creates a kubeconfig Secret for the current cluster if none with the label exists.
+func ensureSelfKubeconfigSecret(ctx context.Context, cfg *rest.Config, namespace, labelKey, dataKey string) error {
+	// Build a lightweight client (no cache) just for Secret operations.
+	scheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(scheme)
+	c, err := client.New(cfg, client.Options{Scheme: scheme})
+	if err != nil {
+		return fmt.Errorf("create direct client failed: %w", err)
+	}
+	name := "self-cluster"
+	self := &corev1.Secret{}
+	if err := c.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, self); err == nil {
+		// Validate existing content: try to load kubeconfig struct.
+		if raw, ok := self.Data[dataKey]; ok {
+			if _, err2 := clientcmd.Load(raw); err2 == nil {
+				return nil
+			} // existing looks valid
+		}
+	} else if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("get self-cluster secret failed: %w", err)
+	}
+
+	// Prefer user kubeconfig file if available (supports cert/key auth). Fallback to rest.Config minimal spec.
+	var loaded *clientcmdapi.Config
+	tryFiles := []string{}
+	if envKC := os.Getenv("KUBECONFIG"); envKC != "" {
+		parts := strings.Split(envKC, string(os.PathListSeparator))
+		if len(parts) > 0 {
+			tryFiles = append(tryFiles, parts[0])
+		}
+	}
+	tryFiles = append(tryFiles, filepath.Join(os.Getenv("HOME"), ".kube", "config"))
+	for _, f := range tryFiles {
+		if f == "" {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		cfgObj, err := clientcmd.Load(b)
+		if err != nil {
+			continue
+		}
+		loaded = cfgObj
+		break
+	}
+	var fullFileConfig *clientcmdapi.Config // keep original file config if loaded for fallback
+	if loaded == nil {
+		// Build synthetic minimal config using rest.Config (may fail outside cluster if token absent).
+		apiServer := cfg.Host
+		auth := &clientcmdapi.AuthInfo{Token: cfg.BearerToken}
+		if len(cfg.TLSClientConfig.CertData) > 0 {
+			auth.ClientCertificateData = cfg.TLSClientConfig.CertData
+		}
+		if len(cfg.TLSClientConfig.KeyData) > 0 {
+			auth.ClientKeyData = cfg.TLSClientConfig.KeyData
+		}
+		kc := clientcmdapi.Config{Clusters: map[string]*clientcmdapi.Cluster{"self": {Server: apiServer, CertificateAuthorityData: cfg.CAData, InsecureSkipTLSVerify: len(cfg.CAData) == 0}}, AuthInfos: map[string]*clientcmdapi.AuthInfo{"self": auth}, Contexts: map[string]*clientcmdapi.Context{"self": {Cluster: "self", AuthInfo: "self"}}, CurrentContext: "self"}
+		loaded = &kc
+	} else {
+		fullFileConfig = loaded.DeepCopy()
+		// Inline referenced cert/key/CA files if data not already embedded.
+		for _, cl := range loaded.Clusters {
+			if len(cl.CertificateAuthorityData) == 0 && cl.CertificateAuthority != "" {
+				if b, err := os.ReadFile(cl.CertificateAuthority); err == nil {
+					cl.CertificateAuthorityData = b
+					cl.CertificateAuthority = ""
+				}
+			}
+		}
+		for _, ai := range loaded.AuthInfos {
+			if len(ai.ClientCertificateData) == 0 && ai.ClientCertificate != "" {
+				if b, err := os.ReadFile(ai.ClientCertificate); err == nil {
+					ai.ClientCertificateData = b
+					ai.ClientCertificate = ""
+				}
+			}
+			if len(ai.ClientKeyData) == 0 && ai.ClientKey != "" {
+				if b, err := os.ReadFile(ai.ClientKey); err == nil {
+					ai.ClientKeyData = b
+					ai.ClientKey = ""
+				}
+			}
+		}
+		if loaded.CurrentContext == "" && len(loaded.Contexts) > 0 {
+			// Pick first context deterministically.
+			for name := range loaded.Contexts {
+				loaded.CurrentContext = name
+				break
+			}
+		}
+		// Reduce kubeconfig to only the current context to avoid multi-context surprises when provider loads it.
+		cur := loaded.CurrentContext
+		if cur != "" {
+			ctxObj := loaded.Contexts[cur]
+			if ctxObj != nil {
+				newCfg := &clientcmdapi.Config{CurrentContext: cur, Contexts: map[string]*clientcmdapi.Context{cur: ctxObj}}
+				if cl := loaded.Clusters[ctxObj.Cluster]; cl != nil {
+					newCfg.Clusters = map[string]*clientcmdapi.Cluster{ctxObj.Cluster: cl}
+				}
+				if ai := loaded.AuthInfos[ctxObj.AuthInfo]; ai != nil {
+					newCfg.AuthInfos = map[string]*clientcmdapi.AuthInfo{ctxObj.AuthInfo: ai}
+				}
+				loaded = newCfg
+			}
+		}
+	}
+	// Validation: ensure we have usable auth (token or cert/key) and can construct a rest.Config.
+	validated := true
+	clientCfg := clientcmd.NewDefaultClientConfig(*loaded, &clientcmd.ConfigOverrides{})
+	probeCfg, errProbe := clientCfg.ClientConfig()
+	if errProbe != nil {
+		validated = false
+	}
+	if validated {
+		// Check auth presence.
+		ctxName := loaded.CurrentContext
+		if ctxName == "" {
+			validated = false
+		}
+		if validated {
+			ctxObj := loaded.Contexts[ctxName]
+			if ctxObj == nil {
+				validated = false
+			} else {
+				auth := loaded.AuthInfos[ctxObj.AuthInfo]
+				if auth == nil {
+					validated = false
+				} else if len(auth.Token) == 0 && len(auth.ClientCertificateData) == 0 {
+					validated = false
+				}
+			}
+		}
+		// Optional version probe for validated config.
+		rc := rest.CopyConfig(probeCfg)
+		rc.Timeout = 2 * time.Second
+		if cli, err := rest.RESTClientFor(rc); err == nil {
+			_ = cli.Get().AbsPath("/version").Do(ctx).Error()
+		}
+	}
+	if !validated && fullFileConfig != nil {
+		// Fallback: use full original file kubeconfig verbatim (embed certs/keys already done) without context reduction.
+		loaded = fullFileConfig
+		fmt.Println("[self-kubeconfig] fallback to full file kubeconfig (validation failed)")
+	} else if !validated {
+		fmt.Println("[self-kubeconfig] validation failed and no file kubeconfig; keeping synthetic may be unusable")
+	}
+	data, err := clientcmd.Write(*loaded)
+	if err != nil {
+		return fmt.Errorf("write kubeconfig failed: %w", err)
+	}
+	sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: map[string]string{labelKey: "true"}}, Data: map[string][]byte{dataKey: data}}
+	// Create or update.
+	if err := c.Create(ctx, sec); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			// Update content if invalid earlier.
+			self.Data[dataKey] = data
+			if err2 := c.Update(ctx, self); err2 != nil {
+				return fmt.Errorf("update self-cluster secret failed: %w", err2)
+			}
+			return nil
+		}
+		return fmt.Errorf("create self kubeconfig secret failed: %w", err)
+	}
+	return nil
+}
