@@ -17,7 +17,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	// helm imports removed (centralized chart management)
 )
 
@@ -162,7 +161,6 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// Central chart management removed from CRD; single-cluster controller no longer performs helm actions.
 	r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, "workspace ensured; central chart managed externally")
 	return ctrl.Result{}, nil
-
 
 	// If release exists and fingerprint unchanged, skip upgrade.
 }
