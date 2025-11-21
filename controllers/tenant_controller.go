@@ -2,11 +2,7 @@ package controllers
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"os"
-	"slices"
-	"strings"
 	"time"
 
 	platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
@@ -22,11 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	action "helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/release"
+	// helm imports removed (centralized chart management)
 )
 
 // TenantReconciler reconciles a Tenant object
@@ -167,152 +159,12 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		r.Recorder.Event(tenant, corev1.EventTypeNormal, "WorkspaceExists", tenant.Spec.Workspace)
 	}
 
-	// Real Helm (basic) install/upgrade attempt (host cluster or remote fallback client not yet wired to Helm configuration).
-	releaseName := fmt.Sprintf("tenant-%s", tenant.Name)
-	chartRef := tenant.Spec.Chart
-	settings := cli.New()
+	// Central chart management removed from CRD; single-cluster controller no longer performs helm actions.
+	r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, "workspace ensured; central chart managed externally")
+	return ctrl.Result{}, nil
 
-	// Idempotency: build a fingerprint (hash) of chart spec (repo+name+version+sorted values) to compare with stored annotation.
-	// We use annotations on the Tenant resource: cryptoedge/fingerprint
-	const fpAnnotationKey = "cryptoedge.example.com/chartFingerprint"
-	valueKeys := make([]string, 0, len(chartRef.Values))
-	for k := range chartRef.Values {
-		valueKeys = append(valueKeys, k)
-	}
-	slices.Sort(valueKeys)
-	var fpBuilder strings.Builder
-	fpBuilder.WriteString(chartRef.Repo)
-	fpBuilder.WriteString("|")
-	fpBuilder.WriteString(chartRef.Name)
-	fpBuilder.WriteString("|")
-	fpBuilder.WriteString(chartRef.Version)
-	fpBuilder.WriteString("|")
-	for _, k := range valueKeys {
-		fpBuilder.WriteString(k)
-		fpBuilder.WriteString("=")
-		fpBuilder.WriteString(fmt.Sprintf("%v", chartRef.Values[k]))
-		fpBuilder.WriteString(";")
-	}
-	fingerprintSource := fpBuilder.String()
-	fingerprint := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(fingerprintSource)))
-	prevFingerprint := tenant.Annotations[fpAnnotationKey]
-
-	// Build an action.Configuration using default RESTClientGetter (host kubeconfig from env).
-	aCfg := new(action.Configuration)
-	// Use environment kubeconfig; without remote rest.Config integration here we only act on host cluster when falling back.
-	if err := aCfg.Init(settings.RESTClientGetter(), tenant.Spec.Workspace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
-		logger.V(1).Info(fmt.Sprintf(format, v...))
-	}); err != nil {
-		logger.Error(err, "helm configuration init failed")
-		r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, fmt.Sprintf("helm config failed: %v", err))
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	// Acquire and load chart using safer ChartPathOptions (avoids Pull.Run panic path);
-	// we pass RepoURL directly instead of requiring a repo entry.
-	var chartLoaded *chart.Chart
-	if chartRef.Repo != "" {
-		// Ensure Helm cache dirs exist (ChartPathOptions expects them).
-		_ = os.MkdirAll(settings.RepositoryCache, 0o755)
-		_ = os.MkdirAll(settings.RepositoryConfig, 0o755)
-		cp := &action.ChartPathOptions{RepoURL: chartRef.Repo, Version: chartRef.Version}
-		loc, err := cp.LocateChart(chartRef.Name, settings)
-		if err != nil {
-			logger.Error(err, "locate chart failed")
-		} else {
-			c, err := loader.Load(loc)
-			if err != nil {
-				logger.Error(err, "chart load failed", "loc", loc)
-			} else {
-				chartLoaded = c
-			}
-		}
-	}
-
-	installed := false
-	var rel *release.Release
-	list := action.NewList(aCfg)
-	list.All = true
-	releases, err := list.Run()
-	if err == nil {
-		for _, rls := range releases {
-			if rls.Name == releaseName && rls.Namespace == tenant.Spec.Workspace {
-				installed = true
-				break
-			}
-		}
-	}
-
-	values := map[string]any{}
-	for k, v := range chartRef.Values {
-		values[k] = v
-	}
 
 	// If release exists and fingerprint unchanged, skip upgrade.
-	if installed && prevFingerprint == fingerprint {
-		logger.Info("skip upgrade; fingerprint unchanged", "fingerprint", fingerprint)
-		// Ensure status reflects readiness even if we skipped Helm action.
-		r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, "fingerprint unchanged; release assumed healthy")
-		return ctrl.Result{}, nil
-	}
-
-	if !installed {
-		install := action.NewInstall(aCfg)
-		install.ReleaseName = releaseName
-		install.Namespace = tenant.Spec.Workspace
-		install.CreateNamespace = false // we already ensured
-		if chartLoaded == nil {
-			logger.Info("chart not loaded; skipping real helm install", "repo", chartRef.Repo, "name", chartRef.Name, "version", chartRef.Version)
-		} else {
-			rel, err = install.Run(chartLoaded, values)
-			if err != nil {
-				logger.Error(err, "helm install failed")
-				r.Recorder.Event(tenant, corev1.EventTypeWarning, "HelmInstallFailed", err.Error())
-				r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, fmt.Sprintf("helm install failed: %v", err))
-				return ctrl.Result{RequeueAfter: 90 * time.Second}, nil
-			}
-			logger.Info("helm install success", "release", releaseName)
-			r.Recorder.Event(tenant, corev1.EventTypeNormal, "HelmInstalled", releaseName)
-		}
-	} else {
-		upgrade := action.NewUpgrade(aCfg)
-		upgrade.Namespace = tenant.Spec.Workspace
-		if chartLoaded != nil {
-			rel, err = upgrade.Run(releaseName, chartLoaded, values)
-			if err != nil {
-				logger.Error(err, "helm upgrade failed")
-				r.Recorder.Event(tenant, corev1.EventTypeWarning, "HelmUpgradeFailed", err.Error())
-				return ctrl.Result{RequeueAfter: 120 * time.Second}, nil
-			}
-			logger.Info("helm upgrade success", "release", releaseName)
-			r.Recorder.Event(tenant, corev1.EventTypeNormal, "HelmUpgraded", releaseName)
-		} else {
-			logger.Info("chart not loaded; skipping upgrade path", "repo", chartRef.Repo, "name", chartRef.Name, "version", chartRef.Version)
-		}
-	}
-
-	if rel != nil {
-		tenant.Status.LastAppliedChart = fmt.Sprintf("%s:%d@%s", rel.Name, rel.Version, chartRef.Version)
-		// Record fingerprint annotation after successful helm action.
-		if tenant.Annotations == nil {
-			tenant.Annotations = map[string]string{}
-		}
-		tenant.Annotations[fpAnnotationKey] = fingerprint
-		if err := r.Update(ctx, tenant); err != nil {
-			logger.Error(err, "failed to update tenant annotations with fingerprint")
-		}
-		r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, fmt.Sprintf("helm release %s status=%s", rel.Name, rel.Info.Status))
-		r.Recorder.Event(tenant, corev1.EventTypeNormal, "Ready", "helm release deployed")
-		logger.Info("tenant reconciled (helm)", "phase", tenant.Status.Phase, "release", rel.Name)
-	} else {
-		// No real release (likely missing chart); keep simulated marker.
-		simulatedReleaseID := fmt.Sprintf("%s/%s@%s", chartRef.Repo, chartRef.Name, chartRef.Version)
-		tenant.Status.LastAppliedChart = simulatedReleaseID
-		r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, "simulated install (chart not loaded)")
-		logger.Info("tenant reconciled (simulated fallback)", "phase", tenant.Status.Phase)
-	}
-
-	return ctrl.Result{}, nil
 }
 
 func (r *TenantReconciler) setStatus(ctx context.Context, t *platformv1alpha1.Tenant, phase platformv1alpha1.TenantPhase, msg string) {

@@ -31,20 +31,7 @@ spec:
                   required: [secretName, secretNamespace]
                 workspace:
                   type: string
-                chart:
-                  type: object
-                  properties:
-                    repo:
-                      type: string
-                    name:
-                      type: string
-                    version:
-                      type: string
-                    values:
-                      x-kubernetes-preserve-unknown-fields: true
-                      type: object
-                  required: [repo, name, version]
-              required: [workspace, chart]
+              required: [workspace]
             status:
               type: object
               properties:

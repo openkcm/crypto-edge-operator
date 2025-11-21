@@ -51,11 +51,20 @@ func RunMulticlusterExample() {
 	var namespace string
 	var kubeconfigSecretLabel string
 	var kubeconfigSecretKey string
+	// Central chart configuration (applies to all Tenants)
+	var chartRepo string
+	var chartName string
+	var chartVersion string
+	var chartInstallCRDs bool
 
 	flag.StringVar(&namespace, "namespace", "default", "Namespace where kubeconfig secrets are stored")
 	flag.StringVar(&kubeconfigSecretLabel, "kubeconfig-label", "sigs.k8s.io/multicluster-runtime-kubeconfig",
 		"Label used to identify secrets containing kubeconfig data")
 	flag.StringVar(&kubeconfigSecretKey, "kubeconfig-key", "kubeconfig", "Key in the secret data that contains the kubeconfig")
+	flag.StringVar(&chartRepo, "chart-repo", "https://charts.jetstack.io", "Central Helm chart repository URL")
+	flag.StringVar(&chartName, "chart-name", "cert-manager", "Central Helm chart name")
+	flag.StringVar(&chartVersion, "chart-version", "1.19.1", "Central Helm chart version")
+	flag.BoolVar(&chartInstallCRDs, "chart-install-crds", true, "Set installCRDs Helm value (cert-manager requires CRDs on first install)")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
@@ -108,8 +117,10 @@ func RunMulticlusterExample() {
 		For(&platformv1alpha1.Tenant{}).
 		Complete(mcreconcile.Func(func(ctx context.Context, req mcreconcile.Request) (ctrl.Result, error) {
 			log := ctrllog.FromContext(ctx).WithValues("cluster", req.ClusterName, "tenant", req.Request.NamespacedName)
+			log.V(1).Info("reconcile start")
 			cl, err := mgr.GetCluster(ctx, req.ClusterName)
 			if err != nil {
+				log.Error(err, "get cluster failed")
 				return reconcile.Result{}, err
 			}
 			// Defensive: ensure Tenant type registered in scheme (in case of edge re-engagement scenarios).
@@ -123,10 +134,13 @@ func RunMulticlusterExample() {
 			tenant := &platformv1alpha1.Tenant{}
 			if err := cl.GetClient().Get(ctx, req.Request.NamespacedName, tenant); err != nil {
 				if apierrors.IsNotFound(err) {
+					log.V(1).Info("tenant not found in cluster cache; skipping")
 					return ctrl.Result{}, nil
 				}
+				log.Error(err, "get tenant failed")
 				return ctrl.Result{}, err
 			}
+			log.V(1).Info("tenant fetched", "phase", tenant.Status.Phase, "workspace", tenant.Spec.Workspace)
 			// Helper to emit a minimal Event directly into the cluster where the Tenant lives.
 			publishEvent := func(eventType, reason, message string) {
 				// Skip if tenant namespace empty (should not happen).
@@ -196,26 +210,21 @@ func RunMulticlusterExample() {
 				publishEvent(corev1.EventTypeNormal, "WorkspaceExists", wsName)
 			}
 			releaseName := fmt.Sprintf("tenant-%s-%s", tenant.Name, req.ClusterName)
-			chartRef := tenant.Spec.Chart
+			// Use central chart configuration instead of per-Tenant spec.
+			chartRefRepo := chartRepo
+			chartRefName := chartName
+			chartRefVersion := chartVersion
 			// Fingerprint spec + chart values for idempotency per cluster.
 			fpHasher := sha256.New()
-			fpHasher.Write([]byte(chartRef.Repo))
+			fpHasher.Write([]byte(chartRefRepo))
 			fpHasher.Write([]byte("|"))
-			fpHasher.Write([]byte(chartRef.Name))
+			fpHasher.Write([]byte(chartRefName))
 			fpHasher.Write([]byte("|"))
-			fpHasher.Write([]byte(chartRef.Version))
+			fpHasher.Write([]byte(chartRefVersion))
 			// Deterministic iteration of values keys
-			valKeys := make([]string, 0, len(chartRef.Values))
-			for k := range chartRef.Values {
-				valKeys = append(valKeys, k)
-			}
+			valKeys := []string{} // no per-tenant values (central management)
 			sort.Strings(valKeys)
-			for _, k := range valKeys {
-				fpHasher.Write([]byte("|"))
-				fpHasher.Write([]byte(k))
-				fpHasher.Write([]byte("="))
-				fpHasher.Write([]byte(fmt.Sprintf("%v", chartRef.Values[k])))
-			}
+			// values intentionally empty
 			fingerprint := hex.EncodeToString(fpHasher.Sum(nil))
 			annoKey := fmt.Sprintf("platform.example.com/fingerprint-%s", req.ClusterName)
 			prevFP := tenant.Annotations[annoKey]
@@ -234,18 +243,18 @@ func RunMulticlusterExample() {
 			}
 			var loaded *chart.Chart
 			versionValid := true
-			if chartRef.Version != "" {
-				if _, err := semver.NewVersion(chartRef.Version); err != nil {
+			if chartRefVersion != "" {
+				if _, err := semver.NewVersion(chartRefVersion); err != nil {
 					versionValid = false
-					log.Error(err, "chart version invalid", "version", chartRef.Version)
+					log.Error(err, "chart version invalid", "version", chartRefVersion)
 				}
 			}
 			var locateErr error
-			if chartRef.Repo != "" && versionValid {
+			if chartRefRepo != "" && versionValid {
 				_ = os.MkdirAll(settings.RepositoryCache, 0o755)
 				_ = os.MkdirAll(settings.RepositoryConfig, 0o755)
-				cp := &action.ChartPathOptions{RepoURL: chartRef.Repo, Version: chartRef.Version}
-				loc, err := cp.LocateChart(chartRef.Name, settings)
+				cp := &action.ChartPathOptions{RepoURL: chartRefRepo, Version: chartRefVersion}
+				loc, err := cp.LocateChart(chartRefName, settings)
 				if err != nil {
 					locateErr = err
 					log.Error(err, "locate chart failed")
@@ -257,8 +266,9 @@ func RunMulticlusterExample() {
 				}
 			}
 			values := map[string]any{}
-			for k, v := range chartRef.Values {
-				values[k] = v
+			if chartInstallCRDs {
+				// cert-manager chart expects 'installCRDs' to be true on initial bootstrap so API types exist before webhook/manager readiness checks.
+				values["installCRDs"] = true
 			}
 			list := action.NewList(aCfg)
 			list.All = true
@@ -353,16 +363,16 @@ func RunMulticlusterExample() {
 			} else {
 				// Handle scenarios where chart not loaded or invalid without hammering status every loop.
 				if !versionValid {
-					log.Info("chart version invalid; skipping helm action", "version", chartRef.Version)
-					publishEvent(corev1.EventTypeWarning, "ChartVersionInvalid", chartRef.Version)
+					log.Info("chart version invalid; skipping helm action", "version", chartRefVersion)
+					publishEvent(corev1.EventTypeWarning, "ChartVersionInvalid", chartRefVersion)
 					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "VersionInvalid", Message: "chart version invalid", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 				} else if locateErr != nil && strings.Contains(strings.ToLower(locateErr.Error()), "invalid_reference") {
-					log.Info("chart version not found in repo", "version", chartRef.Version)
-					publishEvent(corev1.EventTypeWarning, "ChartVersionNotFound", chartRef.Version)
+					log.Info("chart version not found in repo", "version", chartRefVersion)
+					publishEvent(corev1.EventTypeWarning, "ChartVersionNotFound", chartRefVersion)
 					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "VersionNotFound", Message: "chart version not found in repository", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 				} else if loaded == nil {
-					log.Info("chart not loaded; skipping helm action", "repo", chartRef.Repo)
-					publishEvent(corev1.EventTypeWarning, "ChartNotLoaded", chartRef.Repo)
+					log.Info("chart not loaded; skipping helm action", "repo", chartRefRepo)
+					publishEvent(corev1.EventTypeWarning, "ChartNotLoaded", chartRefRepo)
 					// Non-fatal error condition only added once per generation (avoid loop churn).
 					alreadySet := false
 					for _, c := range tenant.Status.Conditions {

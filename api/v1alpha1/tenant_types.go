@@ -21,20 +21,11 @@ type ClusterRef struct {
 	SecretNamespace string `json:"secretNamespace,omitempty" yaml:"secretNamespace,omitempty"`
 }
 
-// ChartRef describes the Helm chart to install.
-type ChartRef struct {
-	Repo    string         `json:"repo,omitempty" yaml:"repo,omitempty"`
-	Name    string         `json:"name,omitempty" yaml:"name,omitempty"`
-	Version string         `json:"version,omitempty" yaml:"version,omitempty"`
-	Values  map[string]any `json:"values,omitempty" yaml:"values,omitempty"`
-}
-
 // TenantSpec defines desired state.
 type TenantSpec struct {
 	// ClusterRef optionally targets a specific discovered cluster; if omitted the Tenant applies to the cluster it resides on.
 	ClusterRef *ClusterRef `json:"clusterRef,omitempty" yaml:"clusterRef,omitempty"`
 	Workspace  string      `json:"workspace" yaml:"workspace"`
-	Chart      ChartRef    `json:"chart" yaml:"chart"`
 }
 
 // TenantStatus captures observed state.
@@ -79,13 +70,7 @@ func (t *Tenant) DeepCopyObject() runtime.Object {
 	}
 	out := new(Tenant)
 	*out = *t
-	// shallow copies of maps/slices need manual duplication
-	if t.Spec.Chart.Values != nil {
-		out.Spec.Chart.Values = map[string]any{}
-		for k, v := range t.Spec.Chart.Values {
-			out.Spec.Chart.Values[k] = v
-		}
-	}
+	// no map copy needed (Chart removed)
 	if t.Status.Conditions != nil {
 		out.Status.Conditions = make([]metav1.Condition, len(t.Status.Conditions))
 		copy(out.Status.Conditions, t.Status.Conditions)

@@ -1,3 +1,84 @@
+# crypto-edge-operator
+
+Experimental multicluster operator prototype.
+
+## Central Helm Chart Configuration
+
+Helm chart rollout is now centrally configured by process flags instead of per-Tenant spec fields. All Tenants share the same chart (repository, name, version) and the operator installs/upgrades that chart into each Tenant workspace namespace on every engaged cluster.
+
+### Flags
+
+The multicluster entrypoint (`RunMulticlusterExample`) supports these flags:
+
+```
+--chart-repo     Central Helm chart repository URL (default: https://charts.jetstack.io)
+--chart-name     Central Helm chart name (default: cert-manager)
+--chart-version  Central Helm chart version (default: 1.19.1)
+--namespace      Namespace containing kubeconfig secrets (default: default)
+--kubeconfig-label  Label selecting kubeconfig secrets (default: sigs.k8s.io/multicluster-runtime-kubeconfig)
+--kubeconfig-key    Data key for kubeconfig content in secret (default: kubeconfig)
+```
+
+Example run (local):
+
+```bash
+go run ./cmd/multicluster \
+  --chart-repo=https://charts.jetstack.io \
+  --chart-name=cert-manager \
+  --chart-version=1.19.1 \
+  --namespace=platform-system
+```
+
+### Changing the Chart
+
+To roll out a different chart or version across all Tenants, restart (or upgrade) the operator with new flag values. The controller computes a fingerprint from repo|name|version and only performs a Helm upgrade if the fingerprint changed.
+
+### Values Support
+
+Per-Tenant Helm values are currently disabled; values are an empty map. To introduce centralized values, add a new flag (e.g. `--chart-values-file`) and load + merge it before install/upgrade. Per-Tenant overrides would require a design update (e.g. referencing a ConfigMap or reintroducing a controlled subset of spec fields).
+
+### Migration From Previous CRD
+
+Older versions used `spec.chart` within the `Tenant` CRD. That field has been removed. Existing Tenant objects with a `chart` key in their spec must be deleted or re-applied without the field after installing the updated CRD:
+
+```bash
+kubectl delete tenant -A --all    # if safe; or selectively recreate
+kubectl apply -f config/crd/bases/platform.example.com_tenants.yaml
+```
+
+Then create new Tenants with only `spec.workspace` (and optional `spec.clusterRef`). Chart selection is now purely an operator deployment concern.
+
+### Environment Override
+
+Set `ALLOW_CHART_SKIP=true` in the operator environment to treat non-fatal chart load errors (e.g. temporary repo outage) as skippable, allowing the Tenant phase to progress to Ready if other conditions are satisfied.
+
+### Events & Conditions
+
+Lifecycle Events emitted per Tenant per cluster:
+
+* HelmInstallStart / HelmInstalled
+* HelmUpgradeStart / HelmUpgraded
+* HelmInstallFailed / HelmUpgradeFailed
+* HelmSkip (fingerprint unchanged)
+* ChartNotLoaded / ChartVersionNotFound / ChartVersionInvalid
+* PhaseSet (aggregated phase transitions)
+
+Status Conditions use cluster-scoped types (e.g. `ClusterReady/<cluster>` / `ClusterError/<cluster>` / `ClusterProgress/<cluster>`).
+
+### Fingerprinting
+
+An annotation `platform.example.com/fingerprint-<cluster>` is set on the Tenant after successful install/upgrade. Update logic currently performs a direct object Update; future improvement will switch to a PATCH with retries and emit FingerprintUpdated / FingerprintUpdateFailed events.
+
+### Troubleshooting
+
+* No install occurring? Verify the chart flags and that the repo is reachable from the operator pod.
+* Continuous ChartNotLoaded warnings? Check network egress, repo URL correctness, or temporary repository outage.
+* VersionNotFound / VersionInvalid events? Confirm the semantic version exists in the repository and is valid (SemVer compliant).
+* Missing events entirely? Ensure RBAC includes create permissions for events (the bundled Role does).
+
+---
+
+See `internal/multicluster/example.go` for the reconciliation logic implementing these behaviors.
 # CryptoEdge Operator
 
 Multi-cluster Kubernetes operator that deploys a Helm chart for each `Tenant` custom resource present on a cluster. Each Tenant specifies a workspace namespace and chart details; the operator ensures the workspace namespace and performs Helm install / upgrade with idempotent fingerprint skipping. Tenants are now stored directly on the cluster they target (no shadow propagation model).

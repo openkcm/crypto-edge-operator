@@ -91,9 +91,15 @@ log "build operator"
 GO111MODULE=on go build -o /tmp/cryptoedge-operator ./main.go
 
 log "start operator (background)"
-# Allow chart load issues to be treated as success for test stability in offline/dev environments.
-export ALLOW_CHART_SKIP=true
-KUBECONFIG=/tmp/home-kind.kubeconfig /tmp/cryptoedge-operator -namespace "$NAMESPACE" -kubeconfig-label sigs.k8s.io/multicluster-runtime-kubeconfig -kubeconfig-key kubeconfig &
+# Require actual chart install (do not skip on non-fatal repo errors for this test).
+unset ALLOW_CHART_SKIP || true
+(KUBECONFIG=/tmp/home-kind.kubeconfig /tmp/cryptoedge-operator \
+  -namespace "$NAMESPACE" \
+  -kubeconfig-label sigs.k8s.io/multicluster-runtime-kubeconfig \
+  -kubeconfig-key kubeconfig \
+  -chart-repo "$CHART_REPO" \
+  -chart-name "$CHART_NAME" \
+  -chart-version "$CHART_VERSION") &
 OP_PID=$!
 echo $OP_PID > /tmp/cryptoedge-operator.pid
 sleep 6
@@ -107,13 +113,17 @@ metadata:
   namespace: ${NAMESPACE}
 spec:
   workspace: ${WORKSPACE_NS}
-  chart:
-    repo: ${CHART_REPO}
-    name: ${CHART_NAME}
-    version: ${CHART_VERSION}
-    values:
-      replicaCount: 1
-      installCRDs: true
+EOF
+
+log "apply same tenant resource to home cluster for visibility"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -f - <<EOF
+apiVersion: platform.example.com/v1alpha1
+kind: Tenant
+metadata:
+  name: ${TENANT_NAME}
+  namespace: ${NAMESPACE}
+spec:
+  workspace: ${WORKSPACE_NS}
 EOF
 
 log "wait for workspace namespace on remote cluster"
@@ -135,6 +145,45 @@ for i in {1..200}; do
   [ $i -eq 200 ] && { log "tenant did not reach Ready phase within 10m"; KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get tenant "$TENANT_NAME" -n "$NAMESPACE" -o yaml; exit 1; }
 done
 log "tenant phase is Ready on remote cluster"
+
+log "check tenant phase on home cluster (timeout 10m)"
+for i in {1..200}; do
+  PHASE_HOME=$(KUBECONFIG=/tmp/home-kind.kubeconfig kubectl get tenant "$TENANT_NAME" -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  [ "$PHASE_HOME" = "Ready" ] && break
+  sleep 3
+  [ $i -eq 200 ] && { log "home cluster tenant did not reach Ready phase within 10m"; KUBECONFIG=/tmp/home-kind.kubeconfig kubectl get tenant "$TENANT_NAME" -n "$NAMESPACE" -o yaml; exit 1; }
+done
+log "tenant phase is Ready on home cluster"
+
+log "verify cert-manager deployments present in workspace namespace on remote cluster"
+# Deployment names are prefixed by the Helm release name (tenant-<tenantName>-<secretName>) since we use the cluster Secret name.
+RELEASE_PREFIX="tenant-${TENANT_NAME}-${REMOTE_SECRET}"
+missingCount=0
+for deploy in ${RELEASE_PREFIX}-cert-manager ${RELEASE_PREFIX}-cert-manager-cainjector ${RELEASE_PREFIX}-cert-manager-webhook; do
+  for i in {1..60}; do
+    OUT=$(KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy "$deploy" -n "$WORKSPACE_NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+    if [ -n "$OUT" ] && [ "$OUT" -ge 1 ]; then
+      log "deployment $deploy ready ($OUT replicas)"
+      break
+    fi
+    sleep 2
+    [ $i -eq 60 ] && { log "deployment $deploy not ready after 120s"; KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy "$deploy" -n "$WORKSPACE_NS" -o yaml || { missingCount=$((missingCount+1)); }; break; }
+  done
+done
+
+if [ $missingCount -gt 0 ]; then
+  log "some expected deployments missing or not ready; listing all deployments for diagnostics"
+  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy -n "$WORKSPACE_NS"
+  log "checking for alternative prefix using cluster name"
+  ALT_PREFIX="tenant-${TENANT_NAME}-${REMOTE_CLUSTER}"
+  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy -n "$WORKSPACE_NS" | awk '{print $1}' | grep "${ALT_PREFIX}-cert-manager" >/dev/null 2>&1 && {
+    log "alternative prefix ${ALT_PREFIX} appears present; consider updating REMOTE_SECRET or release naming logic"
+  }
+  [ $missingCount -gt 0 ] && { log "e2e failing due to missing deployments"; exit 1; }
+fi
+
+log "verify cert-manager pods running"
+KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get pods -n "$WORKSPACE_NS"
 
 log "terminate operator (explicit)"
 if [ -n "$OP_PID" ] && kill -0 $OP_PID 2>/dev/null; then
