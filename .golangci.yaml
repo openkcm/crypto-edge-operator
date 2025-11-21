@@ -89,7 +89,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/openkcm/checker)
+        - prefix(github.com/openkcm/crypto-edge-operator)
         - blank
         - dot
         - alias
