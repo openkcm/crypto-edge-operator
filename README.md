@@ -20,6 +20,9 @@ The multicluster entrypoint (`RunMulticlusterExample`) supports these flags:
 ```
 
 Example run (local):
+# OpenKCM: crypto-edge-operator
+
+[![REUSE status](https://api.reuse.software/badge/github.com/openkcm/crypto-edge-operator)](https://api.reuse.software/info/github.com/openkcm/crypto-edge-operator)
 
 ```bash
 go run ./cmd/multicluster \
@@ -30,6 +33,7 @@ go run ./cmd/multicluster \
 ```
 
 ### Changing the Chart
+Crypto Edge Operator
 
 To roll out a different chart or version across all Tenants, restart (or upgrade) the operator with new flag values. The controller computes a fingerprint from repo|name|version and only performs a Helm upgrade if the fingerprint changed.
 
@@ -40,6 +44,10 @@ Per-Tenant Helm values are currently disabled; values are an empty map. To intro
 ### Migration From Previous CRD
 
 Older versions used `spec.chart` within the `Tenant` CRD. That field has been removed. Existing Tenant objects with a `chart` key in their spec must be deleted or re-applied without the field after installing the updated CRD:
+This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/openkcm/crypto-edge-operator/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
+
+## Security / Disclosure
+If you find any bug that may be a security problem, please follow our instructions at [in our security policy](https://github.com/openkcm/crypto-edge-operator/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.
 
 ```bash
 kubectl delete tenant -A --all    # if safe; or selectively recreate
@@ -276,3 +284,4 @@ kind get kubeconfig --name remote > /tmp/remote.kubeconfig
 ./hack/dev-remote-secret.sh /tmp/remote.kubeconfig cryptoedge-operator acme-remote-kubeconfig
 kubectl apply -f examples/tenant-acme.yaml
 ```
+Copyright (20xx-)20xx SAP SE or an SAP affiliate company and OpenKCM contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/openkcm/crypto-edge-operator).

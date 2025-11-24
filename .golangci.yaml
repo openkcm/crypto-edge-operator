@@ -7,9 +7,8 @@ run:
 linters:
   default: all
   disable:
-    - wastedassign
-    - staticcheck
-    - ineffassign
+    - nilerr
+    - tagliatelle
     - bodyclose
     - gomoddirectives
     - contextcheck
@@ -42,7 +41,14 @@ linters:
     - varnamelen
     - wrapcheck
     - wsl
+    - wsl_v5
+    - funcorder
+    - nonamedreturns
+    - noinlineerr
   settings:
+    errcheck:
+      exclude-functions:
+        - (github.com/jackc/pgx/v5.Tx).Rollback
     paralleltest:
       ignore-missing: true
       ignore-missing-subtests: true
@@ -101,3 +107,7 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+
+issues:
+  exclude-files:
+    - "tmp/.*"

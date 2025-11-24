@@ -1,6 +1,6 @@
 module github.com/openkcm/crypto-edge-operator
 
-go 1.24.0
+go 1.25.4
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -160,4 +160,4 @@ require (
 
 // indirect requirements will be populated by `go get` / `go mod tidy`.
 
-// Run `go mod tidy` to populate indirect dependencies.
+

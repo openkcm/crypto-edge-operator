@@ -1,11 +1,11 @@
 version: 3
 
 includes:
-  shared:
-    taskfile: hack/common/Taskfile_service.yaml
-    flatten: true
-    excludes: [] # put task names in here which are overwritten in this file
-    vars:
-      CODE_DIRS: '{{.ROOT_DIR}}/... {{.ROOT_DIR}}/cmd/... {{.ROOT_DIR}}/internal/... {{.ROOT_DIR}}/test/...'
-      COMPONENTS: 'crypto-edge-operator'
-      REPO_URL: 'https://github.com/openkcm/crypto-edge-operator.git'
+    shared:
+        taskfile: hack/common/Taskfile_controller.yaml
+        flatten: true
+        excludes: [] # put task names in here which are overwritten in this file
+        vars:
+            CODE_DIRS: "{{.ROOT_DIR}}/cmd/..."
+            COMPONENTS: crypto-edge-operator
+            REPO_URL: https://github.com/openkcm/crypto-edge-operator
