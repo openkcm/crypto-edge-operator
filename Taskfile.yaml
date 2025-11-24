@@ -1,11 +1,18 @@
 version: 3
 
 includes:
-    shared:
-        taskfile: hack/common/Taskfile_controller.yaml
-        flatten: true
-        excludes: [] # put task names in here which are overwritten in this file
-        vars:
-            CODE_DIRS: "{{.ROOT_DIR}}/cmd/..."
-            COMPONENTS: crypto-edge-operator
-            REPO_URL: https://github.com/openkcm/crypto-edge-operator
+  shared:
+    taskfile: hack/common/Taskfile_controller.yaml
+    flatten: true
+    excludes: [] # put task names in here which are overwritten in this file
+    vars:
+      NESTED_MODULES: 'api cmd internal controllers multicluster'
+      API_DIRS: '{{.ROOT_DIR}}/api/...'
+      MANIFEST_OUT: '{{.ROOT_DIR}}/api/crds/'
+      CODE_DIRS: '{{.ROOT_DIR}}/cmd/...'
+      COMPONENTS: 'openmcp-operator'
+      REPO_URL: 'https://github.com/openkcm/crypto-edge-operator'
+      GENERATE_DOCS_INDEX: "true"
+      CHART_COMPONENTS: "[]"
+      CRDS_COMPONENTS: "crypto-edge-operator"
+      CRDS_PATH: '{{.ROOT_DIR}}/charts/crds/'

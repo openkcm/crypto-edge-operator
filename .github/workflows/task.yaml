@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [ feature/init ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * *' # Every day at midnight UTC
+
+permissions:
+    id-token: write
+    contents: read
+jobs:
+  test:
+    runs-on: solinas-medium
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Task
+        run: |
+          sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b .
+          ./task --version
+        working-directory: ${{ github.workspace }}
+
+      - name: Run Taskfile pipeline
+        run: |
+          ./task image
+        working-directory: ${{ github.workspace }}
