@@ -39,13 +39,3 @@ tasks:
         done
         (cd "$PROJECT_ROOT"; go test $CODE_DIRS || true)
       fi
-  build:bin:val:test:
-    desc: "Override nested build:bin:val:test to bypass covdata when unavailable."
-    run: once
-    cmds:
-    - task: val:test
-  build:img:build:bin:val:test:
-    desc: "Override deeply nested build:img:build:bin:val:test to bypass covdata when unavailable."
-    run: once
-    cmds:
-    - task: val:test

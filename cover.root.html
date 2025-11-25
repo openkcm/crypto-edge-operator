@@ -1,0 +1,1440 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>v1alpha1: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/openkcm/crypto-edge-operator/api/v1alpha1/deepcopy_manual.go (0.0%)</option>
+				
+				<option value="file1">github.com/openkcm/crypto-edge-operator/api/v1alpha1/groupversion_info.go (0.0%)</option>
+				
+				<option value="file2">github.com/openkcm/crypto-edge-operator/api/v1alpha1/tenant_types.go (0.0%)</option>
+				
+				<option value="file3">github.com/openkcm/crypto-edge-operator/api/v1alpha1/zz_generated.deepcopy.go (0.0%)</option>
+				
+				<option value="file4">github.com/openkcm/crypto-edge-operator/cmd/crypto-edge-operator/main.go (0.0%)</option>
+				
+				<option value="file5">github.com/openkcm/crypto-edge-operator/cmd/multicluster/main.go (0.0%)</option>
+				
+				<option value="file6">github.com/openkcm/crypto-edge-operator/controllers/tenant_controller.go (0.0%)</option>
+				
+				<option value="file7">github.com/openkcm/crypto-edge-operator/internal/helmutil/restgetter.go (0.0%)</option>
+				
+				<option value="file8">github.com/openkcm/crypto-edge-operator/internal/multicluster/crd_ensure.go (0.0%)</option>
+				
+				<option value="file9">github.com/openkcm/crypto-edge-operator/internal/multicluster/example.go (0.0%)</option>
+				
+				<option value="file10">github.com/openkcm/crypto-edge-operator/main.go (0.0%)</option>
+				
+				<option value="file11">github.com/openkcm/crypto-edge-operator/multicluster/secretprovider/provider.go (0.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package v1alpha1
+
+import (
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// DeepCopyInto copies the receiver into out. in must be non-nil.
+func (in *TenantSpec) DeepCopyInto(out *TenantSpec) <span class="cov0" title="0">{
+        *out = *in
+        if in.ClusterRef != nil </span><span class="cov0" title="0">{
+                out.ClusterRef = new(ClusterRef)
+                *out.ClusterRef = *in.ClusterRef
+        }</span>
+}
+
+// DeepCopy creates a new deep-copied TenantSpec.
+func (in *TenantSpec) DeepCopy() *TenantSpec <span class="cov0" title="0">{
+        if in == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov0" title="0">out := new(TenantSpec)
+        in.DeepCopyInto(out)
+        return out</span>
+}
+
+// DeepCopyInto copies the receiver into out. in must be non-nil.
+func (in *TenantStatus) DeepCopyInto(out *TenantStatus) <span class="cov0" title="0">{
+        *out = *in
+        if in.Conditions != nil </span><span class="cov0" title="0">{
+                out.Conditions = make([]metav1.Condition, len(in.Conditions))
+                for i := range in.Conditions </span><span class="cov0" title="0">{
+                        // metav1.Condition has DeepCopyInto; fall back to assignment if absent.
+                        in.Conditions[i].DeepCopyInto(&amp;out.Conditions[i])
+                }</span>
+        }
+}
+
+// DeepCopy creates a new deep-copied TenantStatus.
+func (in *TenantStatus) DeepCopy() *TenantStatus <span class="cov0" title="0">{
+        if in == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov0" title="0">out := new(TenantStatus)
+        in.DeepCopyInto(out)
+        return out</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package v1alpha1
+
+import (
+        "k8s.io/apimachinery/pkg/runtime/schema"
+        "sigs.k8s.io/controller-runtime/pkg/scheme"
+)
+
+// GroupVersion for platform.example.com API group
+var GroupVersion = schema.GroupVersion{Group: "platform.example.com", Version: "v1alpha1"}
+
+var (
+        // SchemeBuilder registers our API types
+        SchemeBuilder = &amp;scheme.Builder{GroupVersion: GroupVersion}
+        // AddToScheme adds the types to the scheme
+        AddToScheme = SchemeBuilder.AddToScheme
+)
+
+func init() <span class="cov0" title="0">{ // Register API types
+        SchemeBuilder.Register(&amp;Tenant{}, &amp;TenantList{})
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package v1alpha1
+
+import (
+        "k8s.io/apimachinery/pkg/runtime/schema"
+
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// TenantPhase enumerates simple lifecycle states.
+type TenantPhase string
+
+const (
+        TenantPhasePending TenantPhase = "Pending"
+        TenantPhaseReady   TenantPhase = "Ready"
+        TenantPhaseError   TenantPhase = "Error"
+)
+
+// ClusterRef references a Secret containing a kubeconfig for the remote cluster.
+type ClusterRef struct {
+        SecretName      string `json:"secretName,omitempty" yaml:"secretName,omitempty"`
+        SecretNamespace string `json:"secretNamespace,omitempty" yaml:"secretNamespace,omitempty"`
+}
+
+// TenantSpec defines desired state.
+type TenantSpec struct {
+        // ClusterRef optionally targets a specific discovered cluster; if omitted the Tenant applies to the cluster it resides on.
+        ClusterRef *ClusterRef `json:"clusterRef,omitempty" yaml:"clusterRef,omitempty"`
+        Workspace  string      `json:"workspace" yaml:"workspace"`
+}
+
+// TenantStatus captures observed state.
+type TenantStatus struct {
+        Phase            TenantPhase        `json:"phase,omitempty" yaml:"phase,omitempty"`
+        LastMessage      string             `json:"lastMessage,omitempty" yaml:"lastMessage,omitempty"`
+        Conditions       []metav1.Condition `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+        LastAppliedChart string             `json:"lastAppliedChart,omitempty" yaml:"lastAppliedChart,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+
+// Tenant is the Schema for the tenants API.
+type Tenant struct {
+        metav1.TypeMeta   `json:",inline"`
+        metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:modernize
+
+        Spec   TenantSpec   `json:"spec,omitempty"`   //nolint:modernize
+        Status TenantStatus `json:"status,omitempty"` //nolint:modernize
+}
+
+// +kubebuilder:object:root=true
+
+// TenantList contains a list of Tenant.
+type TenantList struct {
+        metav1.TypeMeta `json:",inline"`
+        metav1.ListMeta `json:"metadata,omitempty"` //nolint:modernize
+
+        Items []Tenant `json:"items"`
+}
+
+// Registration of types is handled in groupversion_info.go
+
+// GetObjectKind returns the ObjectKind for Tenant.
+// GetObjectKind returns the ObjectKind for Tenant.
+func (t *Tenant) GetObjectKind() schema.ObjectKind <span class="cov0" title="0">{ return &amp;t.TypeMeta }</span>
+
+// GetObjectKind returns the ObjectKind for TenantList.
+func (tl *TenantList) GetObjectKind() schema.ObjectKind <span class="cov0" title="0">{ return &amp;tl.TypeMeta }</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">//go:build !ignore_autogenerated
+
+// Code generated by controller-gen. DO NOT EDIT.
+
+package v1alpha1
+
+import (
+        "k8s.io/apimachinery/pkg/runtime"
+)
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *Tenant) DeepCopyInto(out *Tenant) <span class="cov0" title="0">{
+        *out = *in
+        out.TypeMeta = in.TypeMeta
+        in.ObjectMeta.DeepCopyInto(&amp;out.ObjectMeta)
+        in.Spec.DeepCopyInto(&amp;out.Spec)
+        in.Status.DeepCopyInto(&amp;out.Status)
+}</span>
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new Tenant.
+func (in *Tenant) DeepCopy() *Tenant <span class="cov0" title="0">{
+        if in == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov0" title="0">out := new(Tenant)
+        in.DeepCopyInto(out)
+        return out</span>
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *Tenant) DeepCopyObject() runtime.Object <span class="cov0" title="0">{
+        if c := in.DeepCopy(); c != nil </span><span class="cov0" title="0">{
+                return c
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+
+// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *TenantList) DeepCopyInto(out *TenantList) <span class="cov0" title="0">{
+        *out = *in
+        out.TypeMeta = in.TypeMeta
+        in.ListMeta.DeepCopyInto(&amp;out.ListMeta)
+        if in.Items != nil </span><span class="cov0" title="0">{
+                in, out := &amp;in.Items, &amp;out.Items
+                *out = make([]Tenant, len(*in))
+                for i := range *in </span><span class="cov0" title="0">{
+                        (*in)[i].DeepCopyInto(&amp;(*out)[i])
+                }</span>
+        }
+}
+
+// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new TenantList.
+func (in *TenantList) DeepCopy() *TenantList <span class="cov0" title="0">{
+        if in == nil </span><span class="cov0" title="0">{
+                return nil
+        }</span>
+        <span class="cov0" title="0">out := new(TenantList)
+        in.DeepCopyInto(out)
+        return out</span>
+}
+
+// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
+func (in *TenantList) DeepCopyObject() runtime.Object <span class="cov0" title="0">{
+        if c := in.DeepCopy(); c != nil </span><span class="cov0" title="0">{
+                return c
+        }</span>
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package main
+
+import "github.com/openkcm/crypto-edge-operator/internal/multicluster"
+
+func main() <span class="cov0" title="0">{
+        multicluster.RunMulticlusterExample()
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package main
+
+import "github.com/openkcm/crypto-edge-operator/internal/multicluster"
+
+func main() <span class="cov0" title="0">{
+        multicluster.RunMulticlusterExample()
+}</span>
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package controllers
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "time"
+
+        "k8s.io/apimachinery/pkg/runtime"
+        "k8s.io/apimachinery/pkg/types"
+        "k8s.io/client-go/tools/clientcmd"
+        "k8s.io/client-go/tools/record"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+        "sigs.k8s.io/controller-runtime/pkg/log"
+
+        corev1 "k8s.io/api/core/v1"
+        kerrors "k8s.io/apimachinery/pkg/api/errors"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        ctrl "sigs.k8s.io/controller-runtime"
+
+        platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
+)
+
+// TenantReconciler reconciles a Tenant object
+type TenantReconciler struct {
+        client.Client
+
+        Scheme   *runtime.Scheme
+        Recorder record.EventRecorder
+}
+
+// RBAC markers for future controller-gen usage (currently manual manifests provided under config/rbac).
+// +kubebuilder:rbac:groups=platform.example.com,resources=tenants,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=platform.example.com,resources=tenants/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update;get;list;watch
+
+// Reconcile single-cluster request.
+func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) <span class="cov0" title="0">{
+        logger := log.FromContext(ctx).WithValues("tenant", req.NamespacedName)
+        logger.Info("begin reconcile")
+
+        tenant := &amp;platformv1alpha1.Tenant{}
+        if err := r.Get(ctx, req.NamespacedName, tenant); err != nil </span><span class="cov0" title="0">{
+                if kerrors.IsNotFound(err) </span><span class="cov0" title="0">{
+                        return ctrl.Result{}, nil
+                }</span>
+                <span class="cov0" title="0">return ctrl.Result{}, err</span>
+        }
+        <span class="cov0" title="0">logger.Info("fetched tenant", "generation", tenant.Generation)
+
+        if tenant.Status.Phase == "" </span><span class="cov0" title="0">{
+                tenant.Status.Phase = platformv1alpha1.TenantPhasePending
+                // Attempt an initial status write so we can see pending state even before secret fetch.
+                if err := r.Status().Update(ctx, tenant); err != nil </span><span class="cov0" title="0">{
+                        logger.Error(err, "initial pending status update failed")
+                }</span> else<span class="cov0" title="0"> {
+                        logger.Info("initial status set to Pending")
+                        r.Recorder.Event(tenant, corev1.EventTypeNormal, "Pending", "tenant initialization started")
+                }</span>
+        }
+
+        <span class="cov0" title="0">secret := &amp;corev1.Secret{}
+        useHostFallback := false
+        var secretKey types.NamespacedName
+        if tenant.Spec.ClusterRef != nil &amp;&amp; tenant.Spec.ClusterRef.SecretName != "" </span><span class="cov0" title="0">{
+                secretKey = types.NamespacedName{Namespace: tenant.Spec.ClusterRef.SecretNamespace, Name: tenant.Spec.ClusterRef.SecretName}
+                if err := r.Get(ctx, secretKey, secret); err != nil </span><span class="cov0" title="0">{
+                        logger.Error(err, "remote secret fetch failed; falling back to host cluster", "secret", secretKey.String())
+                        r.Recorder.Event(tenant, corev1.EventTypeWarning, "RemoteSecretMissing", fmt.Sprintf("secret %s fetch failed: %v", secretKey.String(), err))
+                        useHostFallback = true
+                }</span> else<span class="cov0" title="0"> {
+                        logger.Info("remote kubeconfig secret fetched", "secret", secretKey.String())
+                }</span>
+        } else<span class="cov0" title="0"> {
+                // No clusterRef: operate on host cluster directly.
+                useHostFallback = true
+                logger.Info("no clusterRef provided; using host cluster")
+        }</span>
+
+        <span class="cov0" title="0">var remoteClient client.Client
+        var remoteHost string
+        if !useHostFallback </span><span class="cov0" title="0">{
+                kubeconfigBytes, ok := secret.Data["kubeconfig"]
+                if !ok || len(kubeconfigBytes) == 0 </span><span class="cov0" title="0">{
+                        logger.Error(errors.New("kubeconfig secret missing 'kubeconfig' key"), "invalid secret data; using host fallback")
+                        useHostFallback = true
+                }</span> else<span class="cov0" title="0"> {
+                        // Build remote rest.Config from kubeconfig bytes.
+                        rawCfg, err := clientcmd.Load(kubeconfigBytes)
+                        if err != nil </span><span class="cov0" title="0">{
+                                logger.Error(err, "failed to parse kubeconfig; using host fallback")
+                                useHostFallback = true
+                        }</span> else<span class="cov0" title="0"> {
+                                clientCfg := clientcmd.NewDefaultClientConfig(*rawCfg, &amp;clientcmd.ConfigOverrides{})
+                                remoteRest, err := clientCfg.ClientConfig()
+                                if err != nil </span><span class="cov0" title="0">{
+                                        logger.Error(err, "failed to build rest config; using host fallback")
+                                        useHostFallback = true
+                                }</span> else<span class="cov0" title="0"> {
+                                        remoteClient, err = client.New(remoteRest, client.Options{Scheme: r.Scheme})
+                                        if err != nil </span><span class="cov0" title="0">{
+                                                logger.Error(err, "failed to create remote client; using host fallback")
+                                                useHostFallback = true
+                                        }</span> else<span class="cov0" title="0"> {
+                                                remoteHost = remoteRest.Host
+                                                // Connectivity debug: list namespaces
+                                                var nsList corev1.NamespaceList
+                                                if err := remoteClient.List(ctx, &amp;nsList, &amp;client.ListOptions{Limit: 3}); err != nil </span><span class="cov0" title="0">{
+                                                        logger.Error(err, "remote connectivity test failed; using host fallback")
+                                                        useHostFallback = true
+                                                }</span> else<span class="cov0" title="0"> {
+                                                        logger.Info("remote connectivity OK", "sampleNamespaces", len(nsList.Items), "apiServer", remoteHost)
+                                                        r.Recorder.Event(tenant, corev1.EventTypeNormal, "RemoteOK", "remote api reachable host="+remoteHost)
+                                                }</span>
+                                        }
+                                }
+                        }
+                }
+        }
+        <span class="cov0" title="0">if useHostFallback </span><span class="cov0" title="0">{
+                remoteClient = r.Client // host cluster client
+                logger.Info("using host cluster as fallback target")
+                r.Recorder.Event(tenant, corev1.EventTypeNormal, "HostFallback", "using host cluster for operations")
+        }</span>
+
+        // Connectivity debug: attempt a lightweight API call (list namespaces) to validate remote access.
+        <span class="cov0" title="0">var nsList corev1.NamespaceList
+        listCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+        defer cancel()
+        if err := remoteClient.List(listCtx, &amp;nsList, &amp;client.ListOptions{Limit: 5}); err != nil </span><span class="cov0" title="0">{
+                logger.Error(err, "remote cluster list namespaces failed")
+                r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, fmt.Sprintf("remote connectivity failed (list namespaces): %v", err))
+                return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+        }</span>
+        <span class="cov0" title="0">logger.Info("remote connectivity (fallback list) OK", "namespaceSampleCount", len(nsList.Items), "apiServer", remoteHost)
+
+        // Ensure workspace namespace exists on remote cluster.
+        workspaceNS := &amp;corev1.Namespace{}
+        if err := remoteClient.Get(ctx, types.NamespacedName{Name: tenant.Spec.Workspace}, workspaceNS); err != nil </span><span class="cov0" title="0">{
+                if kerrors.IsNotFound(err) </span><span class="cov0" title="0">{
+                        create := &amp;corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: tenant.Spec.Workspace}}
+                        if err2 := remoteClient.Create(ctx, create); err2 != nil </span><span class="cov0" title="0">{
+                                logger.Error(err2, "failed to create workspace namespace", "workspace", tenant.Spec.Workspace)
+                                r.Recorder.Event(tenant, corev1.EventTypeWarning, "WorkspaceCreateFailed", err2.Error())
+                                r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, "namespace create failed: "+err2.Error())
+                                return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+                        }</span>
+                        <span class="cov0" title="0">logger.Info("workspace namespace created", "workspace", tenant.Spec.Workspace)
+                        r.Recorder.Event(tenant, corev1.EventTypeNormal, "WorkspaceCreated", tenant.Spec.Workspace)</span>
+                } else<span class="cov0" title="0"> {
+                        logger.Error(err, "error checking workspace namespace", "workspace", tenant.Spec.Workspace)
+                        r.Recorder.Event(tenant, corev1.EventTypeWarning, "WorkspaceCheckFailed", err.Error())
+                        r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, "namespace check failed: "+err.Error())
+                        return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+                }</span>
+        } else<span class="cov0" title="0"> {
+                logger.Info("workspace namespace exists", "workspace", tenant.Spec.Workspace)
+                r.Recorder.Event(tenant, corev1.EventTypeNormal, "WorkspaceExists", tenant.Spec.Workspace)
+        }</span>
+
+        // Central chart management removed from CRD; single-cluster controller no longer performs helm actions.
+        <span class="cov0" title="0">r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, "workspace ensured; central chart managed externally")
+        return ctrl.Result{}, nil</span>
+
+        // If release exists and fingerprint unchanged, skip upgrade.
+}
+
+func (r *TenantReconciler) setStatus(ctx context.Context, t *platformv1alpha1.Tenant, phase platformv1alpha1.TenantPhase, msg string) <span class="cov0" title="0">{
+        t.Status.Phase = phase
+        t.Status.LastMessage = msg
+        condType := "Ready"
+        status := metav1.ConditionFalse
+        if phase == platformv1alpha1.TenantPhaseReady </span><span class="cov0" title="0">{
+                status = metav1.ConditionTrue
+        }</span>
+        <span class="cov0" title="0">cond := metav1.Condition{
+                Type:               condType,
+                Status:             status,
+                LastTransitionTime: metav1.Now(),
+                Reason:             string(phase),
+                Message:            msg,
+                ObservedGeneration: t.Generation,
+        }
+        replaced := false
+        for i, c := range t.Status.Conditions </span><span class="cov0" title="0">{
+                if c.Type == condType </span><span class="cov0" title="0">{
+                        t.Status.Conditions[i] = cond
+                        replaced = true
+                        break</span>
+                }
+        }
+        <span class="cov0" title="0">if !replaced </span><span class="cov0" title="0">{
+                t.Status.Conditions = append(t.Status.Conditions, cond)
+        }</span>
+        <span class="cov0" title="0">if err := r.Status().Update(ctx, t); err != nil </span><span class="cov0" title="0">{
+                log.FromContext(ctx).Error(err, "status update failed")
+                r.Recorder.Event(t, corev1.EventTypeWarning, "StatusUpdateFailed", err.Error())
+        }</span> else<span class="cov0" title="0"> {
+                r.Recorder.Event(t, corev1.EventTypeNormal, string(phase), msg)
+        }</span>
+}
+
+// SetupWithManager not supported under multicluster signature; use multicluster builder.
+func (r *TenantReconciler) SetupWithManager(mgr ctrl.Manager) error <span class="cov0" title="0">{
+        return errors.New("SetupWithManager not supported for multicluster; use mcbuilder in main")
+}</span>
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package helmutil
+
+import (
+        "errors"
+
+        "k8s.io/apimachinery/pkg/api/meta"
+        "k8s.io/client-go/discovery"
+        "k8s.io/client-go/discovery/cached/memory"
+        "k8s.io/client-go/rest"
+        "k8s.io/client-go/restmapper"
+        "k8s.io/client-go/tools/clientcmd"
+
+        clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+)
+
+// RemoteRESTClientGetter implements helm's RESTClientGetter backed by an existing *rest.Config.
+// This allows helm action.Configuration.Init to target remote clusters discovered by multicluster-runtime.
+// It lazily constructs discovery and RESTMapper components.
+type RemoteRESTClientGetter struct {
+        baseConfig *rest.Config
+}
+
+func NewRemoteRESTClientGetter(cfg *rest.Config) *RemoteRESTClientGetter <span class="cov0" title="0">{
+        return &amp;RemoteRESTClientGetter{baseConfig: rest.CopyConfig(cfg)}
+}</span>
+
+func (g *RemoteRESTClientGetter) ToRESTConfig() (*rest.Config, error) <span class="cov0" title="0">{
+        if g.baseConfig == nil </span><span class="cov0" title="0">{
+                return nil, errors.New("rest config nil")
+        }</span>
+        <span class="cov0" title="0">return rest.CopyConfig(g.baseConfig), nil</span>
+}
+
+func (g *RemoteRESTClientGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) <span class="cov0" title="0">{
+        rc, err := g.ToRESTConfig()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        // Basic discovery client with in-memory cache.
+        <span class="cov0" title="0">disco, err := discovery.NewDiscoveryClientForConfig(rc)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return memory.NewMemCacheClient(disco), nil</span>
+}
+
+func (g *RemoteRESTClientGetter) ToRESTMapper() (meta.RESTMapper, error) <span class="cov0" title="0">{
+        disco, err := g.ToDiscoveryClient()
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">return restmapper.NewDeferredDiscoveryRESTMapper(disco), nil</span>
+}
+
+// ToRawKubeConfigLoader returns a minimal empty kubeconfig loader used by helm for informational warning printing.
+func (g *RemoteRESTClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig <span class="cov0" title="0">{
+        // Minimal stub config (empty) for helm informational calls.
+        empty := clientcmdapi.NewConfig()
+        return clientcmd.NewDefaultClientConfig(*empty, &amp;clientcmd.ConfigOverrides{})
+}</span>
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package multicluster
+
+import (
+        "context"
+        "errors"
+        "fmt"
+        "strings"
+        "time"
+
+        "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+        "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+
+        _ "embed" // required for go:embed directive
+
+        apierrors "k8s.io/apimachinery/pkg/api/errors"
+)
+
+// Embed the Tenant CRD manifest for on-demand apply to discovered clusters.
+//
+//go:embed platform.example.com_tenants.yaml
+var tenantCRDYAML []byte
+
+var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+
+// EnsureTenantCRD applies the Tenant CRD into the target cluster if it is not present.
+// It is intentionally lightweight and only checks for presence by name.
+func EnsureTenantCRD(ctx context.Context, c client.Client) error <span class="cov0" title="0">{
+        crdName := "tenants.platform.example.com"
+        crd := &amp;unstructured.Unstructured{}
+        crd.SetAPIVersion("apiextensions.k8s.io/v1")
+        crd.SetKind("CustomResourceDefinition")
+        crd.SetName(crdName)
+
+        // Retry loop for transient connection / context issues.
+        var lastErr error
+        for attempt := range 5 </span><span class="cov0" title="0">{ // Go 1.25 int range loop
+                getErr := c.Get(ctx, client.ObjectKey{Name: crd.GetName()}, crd)
+                if getErr == nil </span><span class="cov0" title="0">{
+                        return nil // already exists
+                }</span>
+                <span class="cov0" title="0">if getErr != nil &amp;&amp; !apierrors.IsNotFound(getErr) </span><span class="cov0" title="0">{
+                        // Transient network errors often show 'connection refused' or 'context canceled'. Retry those; abort others.
+                        errStr := getErr.Error()
+                        if strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "context canceled") || strings.Contains(errStr, "Client.Timeout") </span><span class="cov0" title="0">{
+                                lastErr = fmt.Errorf("get CRD transient error (attempt %d): %w", attempt+1, getErr)
+                                time.Sleep(time.Duration(attempt+1) * 200 * time.Millisecond)
+                                continue</span>
+                        }
+                        <span class="cov0" title="0">return fmt.Errorf("get CRD failed: %w", getErr)</span>
+                }
+                // NotFound: proceed to create.
+                <span class="cov0" title="0">obj := &amp;unstructured.Unstructured{}
+                _, gvk, decErr := decUnstructured.Decode(tenantCRDYAML, nil, obj)
+                if decErr != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("decode embedded CRD failed: %w", decErr)
+                }</span>
+                <span class="cov0" title="0">if gvk.Kind != "CustomResourceDefinition" </span><span class="cov0" title="0">{
+                        return fmt.Errorf("embedded manifest kind %s unexpected", gvk.Kind)
+                }</span>
+                <span class="cov0" title="0">createErr := c.Create(ctx, obj)
+                if createErr == nil || apierrors.IsAlreadyExists(createErr) </span><span class="cov0" title="0">{
+                        return nil
+                }</span>
+                <span class="cov0" title="0">errStr := createErr.Error()
+                if strings.Contains(errStr, "connection refused") || strings.Contains(errStr, "context canceled") || strings.Contains(errStr, "Client.Timeout") </span><span class="cov0" title="0">{
+                        lastErr = fmt.Errorf("create CRD transient error (attempt %d): %w", attempt+1, createErr)
+                        time.Sleep(time.Duration(attempt+1) * 300 * time.Millisecond)
+                        continue</span>
+                }
+                <span class="cov0" title="0">return fmt.Errorf("create CRD failed: %w", createErr)</span>
+        }
+        <span class="cov0" title="0">if lastErr != nil </span><span class="cov0" title="0">{
+                return lastErr
+        }</span>
+        <span class="cov0" title="0">return errors.New("ensure CRD exhausted retries without success")</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package multicluster
+
+import (
+        "context"
+        "crypto/sha256"
+        "encoding/hex"
+        "errors"
+        "flag"
+        "fmt"
+        "os"
+        "path/filepath"
+        "sort"
+        "strings"
+        "time"
+
+        "github.com/Masterminds/semver/v3"
+        "helm.sh/helm/v3/pkg/chart"
+        "helm.sh/helm/v3/pkg/chart/loader"
+        "helm.sh/helm/v3/pkg/cli"
+        "k8s.io/apimachinery/pkg/runtime"
+        "k8s.io/client-go/rest"
+        "k8s.io/client-go/tools/clientcmd"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+        "sigs.k8s.io/controller-runtime/pkg/cluster"
+        "sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+        action "helm.sh/helm/v3/pkg/action"
+        corev1 "k8s.io/api/core/v1"
+        apierrors "k8s.io/apimachinery/pkg/api/errors"
+        metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+        clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+        clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+        ctrl "sigs.k8s.io/controller-runtime"
+        ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+        metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+        mcbuilder "sigs.k8s.io/multicluster-runtime/pkg/builder"
+        mcmanager "sigs.k8s.io/multicluster-runtime/pkg/manager"
+        mcreconcile "sigs.k8s.io/multicluster-runtime/pkg/reconcile"
+        kubeconfigprovider "sigs.k8s.io/multicluster-runtime/providers/kubeconfig"
+
+        platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
+        helmutil "github.com/openkcm/crypto-edge-operator/internal/helmutil"
+)
+
+// RunMulticlusterExample starts a multicluster manager that reconciles Tenants across discovered clusters.
+//
+//nolint:maintidx,gocyclo // complexity/maintainability accepted short-term; will refactor into helpers later
+func RunMulticlusterExample() <span class="cov0" title="0">{
+        var namespace string
+        var kubeconfigSecretLabel string
+        var kubeconfigSecretKey string
+        // Central chart configuration (applies to all Tenants)
+        var chartRepo string
+        var chartName string
+        var chartVersion string
+        var chartInstallCRDs bool
+
+        flag.StringVar(&amp;namespace, "namespace", "default", "Namespace where kubeconfig secrets are stored")
+        flag.StringVar(&amp;kubeconfigSecretLabel, "kubeconfig-label", "sigs.k8s.io/multicluster-runtime-kubeconfig",
+                "Label used to identify secrets containing kubeconfig data")
+        flag.StringVar(&amp;kubeconfigSecretKey, "kubeconfig-key", "kubeconfig", "Key in the secret data that contains the kubeconfig")
+        flag.StringVar(&amp;chartRepo, "chart-repo", "https://charts.jetstack.io", "Central Helm chart repository URL")
+        flag.StringVar(&amp;chartName, "chart-name", "cert-manager", "Central Helm chart name")
+        flag.StringVar(&amp;chartVersion, "chart-version", "1.19.1", "Central Helm chart version")
+        flag.BoolVar(&amp;chartInstallCRDs, "chart-install-crds", true, "Set installCRDs Helm value (cert-manager requires CRDs on first install)")
+        opts := zap.Options{Development: true}
+        opts.BindFlags(flag.CommandLine)
+        flag.Parse()
+
+        ctrllog.SetLogger(zap.New(zap.UseFlagOptions(&amp;opts)))
+        entryLog := ctrllog.Log.WithName("multicluster-entrypoint")
+        ctx := ctrl.SetupSignalHandler()
+
+        entryLog.Info("Starting multicluster example", "namespace", namespace, "kubeconfigSecretLabel", kubeconfigSecretLabel)
+
+        // Ensure a self kubeconfig secret exists so the provider at least manages the local cluster if user hasn't created one.
+        // This uses the in-cluster (or local) rest.Config to synthesise a kubeconfig and store it as a labeled secret.
+        hostCfg := ctrl.GetConfigOrDie()
+        if err := ensureSelfKubeconfigSecret(ctx, hostCfg, namespace, kubeconfigSecretLabel, kubeconfigSecretKey); err != nil </span><span class="cov0" title="0">{
+                entryLog.Error(err, "failed to ensure self kubeconfig secret")
+        }</span>
+
+        // Create scheme including core and platform (Tenant) types prior to provider &amp; manager creation.
+        <span class="cov0" title="0">scheme := runtime.NewScheme()
+        _ = clientgoscheme.AddToScheme(scheme)
+        _ = platformv1alpha1.AddToScheme(scheme)
+
+        providerOpts := kubeconfigprovider.Options{
+                Namespace:             namespace,
+                KubeconfigSecretLabel: kubeconfigSecretLabel,
+                KubeconfigSecretKey:   kubeconfigSecretKey,
+                // Critical: propagate our scheme (with Tenant type) into every discovered cluster.
+                // Without this, cluster engagement fails when the multicluster manager attempts
+                // to start watches for platformv1alpha1.Tenant because the cluster's scheme
+                // only contains core types.
+                ClusterOptions: []cluster.Option{func(o *cluster.Options) </span><span class="cov0" title="0">{ o.Scheme = scheme }</span>},
+        }
+        <span class="cov0" title="0">provider := kubeconfigprovider.New(providerOpts)
+
+        managerOpts := mcmanager.Options{Metrics: metricsserver.Options{BindAddress: "0"}, Scheme: scheme}
+        mgr, err := mcmanager.New(ctrl.GetConfigOrDie(), provider, managerOpts)
+        if err != nil </span><span class="cov0" title="0">{
+                entryLog.Error(err, "Unable to create multicluster manager")
+                os.Exit(1)
+        }</span>
+        <span class="cov0" title="0">if err := provider.SetupWithManager(ctx, mgr); err != nil </span><span class="cov0" title="0">{
+                entryLog.Error(err, "Unable to setup provider")
+                os.Exit(1)
+        }</span>
+        // Scheme already contains Tenant; we will fetch and update Tenants directly per engaged cluster (no shadow model).
+
+        // Multicluster Tenant controller – installs/updates Helm release per cluster.
+        <span class="cov0" title="0">if err := mcbuilder.ControllerManagedBy(mgr).
+                Named("multicluster-tenants").
+                For(&amp;platformv1alpha1.Tenant{}).
+                Complete(mcreconcile.Func(func(ctx context.Context, req mcreconcile.Request) (ctrl.Result, error) </span><span class="cov0" title="0">{
+                        log := ctrllog.FromContext(ctx).WithValues("cluster", req.ClusterName, "tenant", req.NamespacedName)
+                        log.V(1).Info("reconcile start")
+                        cl, err := mgr.GetCluster(ctx, req.ClusterName)
+                        if err != nil </span><span class="cov0" title="0">{
+                                log.Error(err, "get cluster failed")
+                                return ctrl.Result{}, err
+                        }</span>
+                        // Defensive: ensure Tenant type registered in scheme (in case of edge re-engagement scenarios).
+                        <span class="cov0" title="0">_ = platformv1alpha1.AddToScheme(cl.GetScheme())
+                        // Ensure CRD exists on this cluster before attempting to fetch local Tenant objects.
+                        if err := EnsureTenantCRD(ctx, cl.GetClient()); err != nil </span><span class="cov0" title="0">{
+                                log.Error(err, "ensure Tenant CRD failed")
+                                return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+                        }</span>
+                        // Fetch Tenant from THIS cluster (model: each cluster stores its own Tenant objects; no home shadow propagation).
+                        <span class="cov0" title="0">tenant := &amp;platformv1alpha1.Tenant{}
+                        if err := cl.GetClient().Get(ctx, req.NamespacedName, tenant); err != nil </span><span class="cov0" title="0">{
+                                if apierrors.IsNotFound(err) </span><span class="cov0" title="0">{
+                                        log.V(1).Info("tenant not found in cluster cache; skipping")
+                                        return ctrl.Result{}, nil
+                                }</span>
+                                <span class="cov0" title="0">log.Error(err, "get tenant failed")
+                                return ctrl.Result{}, err</span>
+                        }
+                        <span class="cov0" title="0">log.V(1).Info("tenant fetched", "phase", tenant.Status.Phase, "workspace", tenant.Spec.Workspace)
+                        // Helper to emit a minimal Event directly into the cluster where the Tenant lives.
+                        publishEvent := func(eventType, reason, message string) </span><span class="cov0" title="0">{
+                                // Skip if tenant namespace empty (should not happen).
+                                if tenant.Namespace == "" </span><span class="cov0" title="0">{
+                                        return
+                                }</span>
+                                <span class="cov0" title="0">ev := &amp;corev1.Event{}
+                                ev.Namespace = tenant.Namespace
+                                ev.Name = fmt.Sprintf("%s.%d", tenant.Name, time.Now().UnixNano())
+                                ev.InvolvedObject = corev1.ObjectReference{
+                                        Kind:       "Tenant",
+                                        Namespace:  tenant.Namespace,
+                                        Name:       tenant.Name,
+                                        UID:        tenant.UID,
+                                        APIVersion: platformv1alpha1.GroupVersion.String(),
+                                }
+                                ev.Type = eventType
+                                ev.Reason = reason
+                                ev.Message = message
+                                ev.FirstTimestamp = metav1.Now()
+                                ev.LastTimestamp = ev.FirstTimestamp
+                                ev.Source = corev1.EventSource{Component: "multicluster-tenants"}
+                                // Populate deprecated fields still required by validation for corev1.Event objects.
+                                ev.ReportingController = "platform.example.com/multicluster-tenants"
+                                instName := os.Getenv("POD_NAME")
+                                if instName == "" </span><span class="cov0" title="0">{
+                                        instName = os.Getenv("HOSTNAME")
+                                }</span>
+                                <span class="cov0" title="0">if instName == "" </span><span class="cov0" title="0">{
+                                        instName = "host-" + req.ClusterName
+                                }</span>
+                                <span class="cov0" title="0">ev.ReportingInstance = instName
+                                ev.Action = reason
+                                ev.EventTime = metav1.MicroTime{Time: time.Now()}
+                                ev.Count = 1
+                                // quick unique fingerprint for dedup detection by consumers
+                                ev.Series = &amp;corev1.EventSeries{Count: 1, LastObservedTime: ev.EventTime}
+                                // Attempt create with short timeout.
+                                cCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+                                defer cancel()
+                                if err := cl.GetClient().Create(cCtx, ev); err != nil &amp;&amp; !apierrors.IsAlreadyExists(err) </span><span class="cov0" title="0">{
+                                        log.Info("event create failed", "reason", reason, "err", err)
+                                }</span>
+                        }
+                        // If clusterRef specified (non-nil) and secretName targets a different cluster, skip.
+                        <span class="cov0" title="0">if tenant.Spec.ClusterRef != nil &amp;&amp; tenant.Spec.ClusterRef.SecretName != "" &amp;&amp; tenant.Spec.ClusterRef.SecretName != req.ClusterName </span><span class="cov0" title="0">{
+                                log.V(1).Info("skipping cluster due to clusterRef", "cluster", req.ClusterName, "target", tenant.Spec.ClusterRef.SecretName)
+                                return ctrl.Result{}, nil
+                        }</span>
+                        <span class="cov0" title="0">wsName := tenant.Spec.Workspace
+                        ns := &amp;corev1.Namespace{}
+                        if err := cl.GetClient().Get(ctx, client.ObjectKey{Name: wsName}, ns); err != nil </span><span class="cov0" title="0">{
+                                if apierrors.IsNotFound(err) </span><span class="cov0" title="0">{
+                                        create := &amp;corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wsName}}
+                                        if err2 := cl.GetClient().Create(ctx, create); err2 != nil </span><span class="cov0" title="0">{
+                                                log.Error(err2, "failed to create workspace namespace", "workspace", wsName)
+                                                publishEvent(corev1.EventTypeWarning, "WorkspaceCreateFailed", err2.Error())
+                                                return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+                                        }</span>
+                                        <span class="cov0" title="0">log.Info("workspace namespace created", "workspace", wsName)
+                                        publishEvent(corev1.EventTypeNormal, "WorkspaceCreated", wsName)</span>
+                                } else<span class="cov0" title="0"> {
+                                        return ctrl.Result{}, err
+                                }</span>
+                        } else<span class="cov0" title="0"> {
+                                log.Info("workspace namespace exists", "workspace", wsName)
+                                publishEvent(corev1.EventTypeNormal, "WorkspaceExists", wsName)
+                        }</span>
+                        <span class="cov0" title="0">releaseName := fmt.Sprintf("tenant-%s-%s", tenant.Name, req.ClusterName)
+                        // Use central chart configuration instead of per-Tenant spec.
+                        chartRefRepo := chartRepo
+                        chartRefName := chartName
+                        chartRefVersion := chartVersion
+                        // Fingerprint spec + chart values for idempotency per cluster.
+                        fpHasher := sha256.New()
+                        fpHasher.Write([]byte(chartRefRepo))
+                        fpHasher.Write([]byte("|"))
+                        fpHasher.Write([]byte(chartRefName))
+                        fpHasher.Write([]byte("|"))
+                        fpHasher.Write([]byte(chartRefVersion))
+                        // Deterministic iteration of values keys
+                        valKeys := []string{} // no per-tenant values (central management)
+                        sort.Strings(valKeys)
+                        // values intentionally empty
+                        fingerprint := hex.EncodeToString(fpHasher.Sum(nil))
+                        annoKey := "platform.example.com/fingerprint-" + req.ClusterName
+                        prevFP := tenant.Annotations[annoKey]
+                        if tenant.Annotations == nil </span><span class="cov0" title="0">{
+                                tenant.Annotations = map[string]string{}
+                        }</span>
+                        <span class="cov0" title="0">settings := cli.New()
+                        // Build helm action.Configuration using remote cluster rest.Config.
+                        remoteCfg := cl.GetConfig()
+                        getter := helmutil.NewRemoteRESTClientGetter(remoteCfg)
+                        aCfg := new(action.Configuration)
+                        if err := aCfg.Init(getter, wsName, os.Getenv("HELM_DRIVER"), func(format string, v ...any) </span><span class="cov0" title="0">{ log.V(1).Info(fmt.Sprintf(format, v...)) }</span>); err != nil <span class="cov0" title="0">{
+                                log.Error(err, "helm configuration init failed")
+                                publishEvent(corev1.EventTypeWarning, "HelmConfigInitFailed", err.Error())
+                                return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+                        }</span>
+                        <span class="cov0" title="0">var loaded *chart.Chart
+                        versionValid := true
+                        if chartRefVersion != "" </span><span class="cov0" title="0">{
+                                if _, err := semver.NewVersion(chartRefVersion); err != nil </span><span class="cov0" title="0">{
+                                        versionValid = false
+                                        log.Error(err, "chart version invalid", "version", chartRefVersion)
+                                }</span>
+                        }
+                        <span class="cov0" title="0">var locateErr error
+                        if chartRefRepo != "" &amp;&amp; versionValid </span><span class="cov0" title="0">{
+                                _ = os.MkdirAll(settings.RepositoryCache, 0o755)
+                                _ = os.MkdirAll(settings.RepositoryConfig, 0o755)
+                                cp := &amp;action.ChartPathOptions{RepoURL: chartRefRepo, Version: chartRefVersion}
+                                loc, err := cp.LocateChart(chartRefName, settings)
+                                if err != nil </span><span class="cov0" title="0">{
+                                        locateErr = err
+                                        log.Error(err, "locate chart failed")
+                                }</span> else<span class="cov0" title="0"> if c, err2 := loader.Load(loc); err2 == nil </span><span class="cov0" title="0">{
+                                        loaded = c
+                                }</span> else<span class="cov0" title="0"> {
+                                        locateErr = err2
+                                        log.Error(err2, "chart load failed", "loc", loc)
+                                }</span>
+                        }
+                        <span class="cov0" title="0">values := map[string]any{}
+                        if chartInstallCRDs </span><span class="cov0" title="0">{
+                                // cert-manager chart expects 'installCRDs' to be true on initial bootstrap so API types exist before webhook/manager readiness checks.
+                                values["installCRDs"] = true
+                        }</span>
+                        <span class="cov0" title="0">list := action.NewList(aCfg)
+                        list.All = true
+                        installed := false
+                        if rels, err := list.Run(); err == nil </span><span class="cov0" title="0">{
+                                for _, r := range rels </span><span class="cov0" title="0">{
+                                        if r.Name == releaseName &amp;&amp; r.Namespace == wsName </span><span class="cov0" title="0">{
+                                                installed = true
+                                                break</span>
+                                        }
+                                }
+                        }
+                        // Helper to upsert per-cluster condition.
+                        <span class="cov0" title="0">upsertCondition := func(cond metav1.Condition) </span><span class="cov0" title="0">{
+                                found := false
+                                for i := range tenant.Status.Conditions </span><span class="cov0" title="0">{
+                                        c := tenant.Status.Conditions[i]
+                                        if c.Type == cond.Type &amp;&amp; c.ObservedGeneration == tenant.Generation &amp;&amp; c.Message == cond.Message &amp;&amp; c.Reason == cond.Reason &amp;&amp; c.Status == cond.Status </span><span class="cov0" title="0">{
+                                                // identical; keep existing LastTransitionTime
+                                                found = true
+                                                break</span>
+                                        }
+                                        <span class="cov0" title="0">if c.Type == cond.Type </span><span class="cov0" title="0">{
+                                                // replace
+                                                tenant.Status.Conditions[i] = cond
+                                                found = true
+                                                break</span>
+                                        }
+                                }
+                                <span class="cov0" title="0">if !found </span><span class="cov0" title="0">{
+                                        tenant.Status.Conditions = append(tenant.Status.Conditions, cond)
+                                }</span>
+                        }
+                        <span class="cov0" title="0">condReadyType := "ClusterReady/" + req.ClusterName
+                        condErrorType := "ClusterError/" + req.ClusterName
+                        if prevFP == fingerprint &amp;&amp; installed </span><span class="cov0" title="0">{
+                                log.Info("fingerprint unchanged; skipping helm upgrade", "release", releaseName)
+                                publishEvent(corev1.EventTypeNormal, "HelmSkip", "fingerprint unchanged")
+                                upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "NoChange", Message: "release up-to-date", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                        }</span>
+                        // Progress condition type (declared before any goto targets to satisfy compiler).
+                        <span class="cov0" title="0">progressType := "ClusterProgress/" + req.ClusterName
+                        if !installed &amp;&amp; loaded != nil </span><span class="cov0" title="0">{
+                                publishEvent(corev1.EventTypeNormal, "HelmInstallStart", releaseName)
+                                inst := action.NewInstall(aCfg)
+                                inst.ReleaseName = releaseName
+                                inst.Namespace = wsName
+                                // Wait for resources (including hook Jobs) to be ready before we mark cluster ready.
+                                inst.Wait = true
+                                inst.Timeout = 180 * time.Second
+                                // Mark progress condition (True while running)
+                                upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionTrue, Reason: "Installing", Message: "helm install in progress", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                if _, err := inst.Run(loaded, values); err != nil </span><span class="cov0" title="0">{
+                                        log.Error(err, "helm install failed")
+                                        publishEvent(corev1.EventTypeWarning, "HelmInstallFailed", err.Error())
+                                        upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "InstallFailed", Message: err.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                        upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "InstallFailed", Message: "helm install failed", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                        // install failed; conditions set
+                                }</span>
+                                <span class="cov0" title="0">log.Info("helm install success", "release", releaseName)
+                                publishEvent(corev1.EventTypeNormal, "HelmInstalled", releaseName)
+                                tenant.Annotations[annoKey] = fingerprint
+                                if err := cl.GetClient().Update(ctx, tenant); err != nil </span><span class="cov0" title="0">{
+                                        log.Error(err, "failed to update tenant annotation with fingerprint")
+                                }</span>
+                                <span class="cov0" title="0">upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "InstallComplete", Message: "helm install complete", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "Installed", Message: "release installed", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})</span>
+                        } else<span class="cov0" title="0"> if installed &amp;&amp; loaded != nil </span><span class="cov0" title="0">{
+                                publishEvent(corev1.EventTypeNormal, "HelmUpgradeStart", releaseName)
+                                up := action.NewUpgrade(aCfg)
+                                up.Namespace = wsName
+                                up.Wait = true
+                                up.Timeout = 180 * time.Second
+                                upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionTrue, Reason: "Upgrading", Message: "helm upgrade in progress", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                if _, err := up.Run(releaseName, loaded, values); err != nil </span><span class="cov0" title="0">{
+                                        log.Error(err, "helm upgrade failed")
+                                        publishEvent(corev1.EventTypeWarning, "HelmUpgradeFailed", err.Error())
+                                        upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "UpgradeFailed", Message: err.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                        upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "UpgradeFailed", Message: "helm upgrade failed", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                        // upgrade failed; conditions set
+                                }</span>
+                                <span class="cov0" title="0">log.Info("helm upgrade success", "release", releaseName)
+                                publishEvent(corev1.EventTypeNormal, "HelmUpgraded", releaseName)
+                                tenant.Annotations[annoKey] = fingerprint
+                                if err := cl.GetClient().Update(ctx, tenant); err != nil </span><span class="cov0" title="0">{
+                                        log.Error(err, "failed to update tenant annotation with fingerprint")
+                                }</span>
+                                <span class="cov0" title="0">upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "UpgradeComplete", Message: "helm upgrade complete", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "Upgraded", Message: "release upgraded", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})</span>
+                        } else<span class="cov0" title="0"> {
+                                // Handle scenarios where chart not loaded or invalid without hammering status every loop.
+                                if !versionValid </span><span class="cov0" title="0">{
+                                        log.Info("chart version invalid; skipping helm action", "version", chartRefVersion)
+                                        publishEvent(corev1.EventTypeWarning, "ChartVersionInvalid", chartRefVersion)
+                                        upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "VersionInvalid", Message: "chart version invalid", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                }</span> else<span class="cov0" title="0"> if locateErr != nil &amp;&amp; strings.Contains(strings.ToLower(locateErr.Error()), "invalid_reference") </span><span class="cov0" title="0">{
+                                        log.Info("chart version not found in repo", "version", chartRefVersion)
+                                        publishEvent(corev1.EventTypeWarning, "ChartVersionNotFound", chartRefVersion)
+                                        upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "VersionNotFound", Message: "chart version not found in repository", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                }</span> else<span class="cov0" title="0"> if loaded == nil </span><span class="cov0" title="0">{
+                                        log.Info("chart not loaded; skipping helm action", "repo", chartRefRepo)
+                                        publishEvent(corev1.EventTypeWarning, "ChartNotLoaded", chartRefRepo)
+                                        // Non-fatal error condition only added once per generation (avoid loop churn).
+                                        alreadySet := false
+                                        for _, c := range tenant.Status.Conditions </span><span class="cov0" title="0">{
+                                                if c.Type == condErrorType &amp;&amp; c.Reason == "ChartNotLoaded" &amp;&amp; c.ObservedGeneration == tenant.Generation </span><span class="cov0" title="0">{
+                                                        alreadySet = true
+                                                        break</span>
+                                                }
+                                        }
+                                        <span class="cov0" title="0">if !alreadySet </span><span class="cov0" title="0">{
+                                                upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "ChartNotLoaded", Message: "chart not loaded; repo unreachable?", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+                                        }</span>
+                                }
+                        }
+                        // Phase aggregation (label preserved from previous goto target)
+                        // phase conditions already set above
+                        // Aggregate overall Phase with nuanced error severity.
+                        // Fatal errors: InstallFailed, UpgradeFailed. Non-fatal/spec errors: ChartNotLoaded, VersionNotFound, VersionInvalid.
+                        <span class="cov0" title="0">allowChartSkip := os.Getenv("ALLOW_CHART_SKIP") == "true"
+                        phase := platformv1alpha1.TenantPhasePending
+                        hadFatalError := false
+                        hadReady := false
+                        nonFatalErrorPresent := false
+                        for _, c := range tenant.Status.Conditions </span><span class="cov0" title="0">{
+                                if strings.HasPrefix(c.Type, "ClusterError/") &amp;&amp; c.Status == metav1.ConditionTrue </span><span class="cov0" title="0">{
+                                        // Inspect Reason for severity.
+                                        switch c.Reason </span>{
+                                        case "InstallFailed", "UpgradeFailed":<span class="cov0" title="0">
+                                                hadFatalError = true</span>
+                                        case "ChartNotLoaded", "VersionNotFound", "VersionInvalid":<span class="cov0" title="0">
+                                                nonFatalErrorPresent = true</span>
+                                        }
+                                }
+                                <span class="cov0" title="0">if strings.HasPrefix(c.Type, "ClusterReady/") &amp;&amp; c.Status == metav1.ConditionTrue </span><span class="cov0" title="0">{
+                                        hadReady = true
+                                }</span>
+                        }
+                        // Determine phase precedence.
+                        <span class="cov0" title="0">if hadFatalError </span><span class="cov0" title="0">{
+                                phase = platformv1alpha1.TenantPhaseError
+                        }</span> else<span class="cov0" title="0"> if hadReady &amp;&amp; (allowChartSkip || !nonFatalErrorPresent) </span><span class="cov0" title="0">{
+                                // Ready wins if there is a ready condition and either no non-fatal error OR user allows skip.
+                                phase = platformv1alpha1.TenantPhaseReady
+                        }</span> else<span class="cov0" title="0"> if nonFatalErrorPresent </span><span class="cov0" title="0">{
+                                // Remain Pending for non-fatal issues (e.g. repo temporarily unreachable) unless allowChartSkip flips to Ready.
+                                phase = platformv1alpha1.TenantPhasePending
+                        }</span>
+                        <span class="cov0" title="0">tenant.Status.Phase = phase
+                        // Retry status update (rate limiter/context cancellations can occur under load).
+                        updateErr := func() error </span><span class="cov0" title="0">{
+                                var lastErr error
+                                for range 3 </span><span class="cov0" title="0">{ // Go 1.25 int range loop
+                                        // Short timeout per attempt to avoid hanging entire reconcile.
+                                        uCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+                                        lastErr = cl.GetClient().Status().Update(uCtx, tenant)
+                                        cancel()
+                                        if lastErr == nil </span><span class="cov0" title="0">{
+                                                return nil
+                                        }</span>
+                                        <span class="cov0" title="0">if strings.Contains(lastErr.Error(), "context canceled") </span><span class="cov0" title="0">{
+                                                // Backoff a bit; underlying rate limiter may be throttling.
+                                                time.Sleep(500 * time.Millisecond)
+                                                continue</span>
+                                        }
+                                        // For other errors, still retry but shorter backoff.
+                                        <span class="cov0" title="0">time.Sleep(250 * time.Millisecond)</span>
+                                }
+                                <span class="cov0" title="0">return lastErr</span>
+                        }()
+                        <span class="cov0" title="0">if updateErr != nil </span><span class="cov0" title="0">{
+                                log.Error(updateErr, "failed to update tenant status phase/conditions after retries")
+                                publishEvent(corev1.EventTypeWarning, "StatusUpdateFailed", updateErr.Error())
+                                return ctrl.Result{RequeueAfter: 45 * time.Second}, nil
+                        }</span>
+                        <span class="cov0" title="0">publishEvent(corev1.EventTypeNormal, "PhaseSet", string(phase))
+                        // If we only have non-fatal chart load issues and allowChartSkip is true, avoid tight requeue.
+                        if allowChartSkip &amp;&amp; !hadFatalError &amp;&amp; !hadReady &amp;&amp; nonFatalErrorPresent </span><span class="cov0" title="0">{
+                                return ctrl.Result{RequeueAfter: 120 * time.Second}, nil
+                        }</span>
+                        <span class="cov0" title="0">return ctrl.Result{}, nil</span>
+                })); err != nil <span class="cov0" title="0">{
+                entryLog.Error(err, "unable to create multicluster tenant controller")
+                os.Exit(1)
+        }</span>
+
+        <span class="cov0" title="0">if err := mgr.Start(ctx); err != nil &amp;&amp; !errors.Is(err, context.Canceled) </span><span class="cov0" title="0">{
+                entryLog.Error(err, "unable to start multicluster manager")
+                os.Exit(1)
+        }</span>
+}
+
+// ensureSelfKubeconfigSecret creates a kubeconfig Secret for the current cluster if none with the label exists.
+//
+//nolint:maintidx,gocyclo // planned decomposition (file loading, reduction, validation) later
+func ensureSelfKubeconfigSecret(ctx context.Context, cfg *rest.Config, namespace, labelKey, dataKey string) error <span class="cov0" title="0">{
+        // Build a lightweight client (no cache) just for Secret operations.
+        scheme := runtime.NewScheme()
+        _ = clientgoscheme.AddToScheme(scheme)
+        c, err := client.New(cfg, client.Options{Scheme: scheme})
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("create direct client failed: %w", err)
+        }</span>
+        <span class="cov0" title="0">name := "self-cluster"
+        self := &amp;corev1.Secret{}
+        if err := c.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, self); err == nil </span><span class="cov0" title="0">{
+                // Validate existing content: try to load kubeconfig struct.
+                if raw, ok := self.Data[dataKey]; ok </span><span class="cov0" title="0">{
+                        if _, err2 := clientcmd.Load(raw); err2 == nil </span><span class="cov0" title="0">{
+                                return nil
+                        }</span> // existing looks valid
+                }
+        } else<span class="cov0" title="0"> if !apierrors.IsNotFound(err) </span><span class="cov0" title="0">{
+                return fmt.Errorf("get self-cluster secret failed: %w", err)
+        }</span>
+
+        // Prefer user kubeconfig file if available (supports cert/key auth). Fallback to rest.Config minimal spec.
+        <span class="cov0" title="0">var loaded *clientcmdapi.Config
+        tryFiles := []string{}
+        if envKC := os.Getenv("KUBECONFIG"); envKC != "" </span><span class="cov0" title="0">{
+                parts := strings.Split(envKC, string(os.PathListSeparator))
+                if len(parts) &gt; 0 </span><span class="cov0" title="0">{
+                        tryFiles = append(tryFiles, parts[0])
+                }</span>
+        }
+        <span class="cov0" title="0">tryFiles = append(tryFiles, filepath.Join(os.Getenv("HOME"), ".kube", "config"))
+        for _, f := range tryFiles </span><span class="cov0" title="0">{
+                if f == "" </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">b, err := os.ReadFile(f)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">cfgObj, err := clientcmd.Load(b)
+                if err != nil </span><span class="cov0" title="0">{
+                        continue</span>
+                }
+                <span class="cov0" title="0">loaded = cfgObj
+                break</span>
+        }
+        <span class="cov0" title="0">var fullFileConfig *clientcmdapi.Config // keep original file config if loaded for fallback
+        if loaded == nil </span><span class="cov0" title="0">{
+                // Build synthetic minimal config using rest.Config (may fail outside cluster if token absent).
+                apiServer := cfg.Host
+                auth := &amp;clientcmdapi.AuthInfo{Token: cfg.BearerToken}
+                if len(cfg.TLSClientConfig.CertData) &gt; 0 </span><span class="cov0" title="0">{ //nolint:staticcheck
+                        auth.ClientCertificateData = cfg.TLSClientConfig.CertData //nolint:staticcheck
+                }</span>
+                <span class="cov0" title="0">if len(cfg.TLSClientConfig.KeyData) &gt; 0 </span><span class="cov0" title="0">{ //nolint:staticcheck
+                        auth.ClientKeyData = cfg.TLSClientConfig.KeyData //nolint:staticcheck
+                }</span>
+                <span class="cov0" title="0">kc := clientcmdapi.Config{Clusters: map[string]*clientcmdapi.Cluster{"self": {Server: apiServer, CertificateAuthorityData: cfg.CAData, InsecureSkipTLSVerify: len(cfg.CAData) == 0}}, AuthInfos: map[string]*clientcmdapi.AuthInfo{"self": auth}, Contexts: map[string]*clientcmdapi.Context{"self": {Cluster: "self", AuthInfo: "self"}}, CurrentContext: "self"}
+                loaded = &amp;kc</span>
+        } else<span class="cov0" title="0"> {
+                fullFileConfig = loaded.DeepCopy()
+                // Inline referenced cert/key/CA files if data not already embedded.
+                for _, cl := range loaded.Clusters </span><span class="cov0" title="0">{
+                        if len(cl.CertificateAuthorityData) == 0 &amp;&amp; cl.CertificateAuthority != "" </span><span class="cov0" title="0">{
+                                if b, err := os.ReadFile(cl.CertificateAuthority); err == nil </span><span class="cov0" title="0">{
+                                        cl.CertificateAuthorityData = b
+                                        cl.CertificateAuthority = ""
+                                }</span>
+                        }
+                }
+                <span class="cov0" title="0">for _, ai := range loaded.AuthInfos </span><span class="cov0" title="0">{
+                        if len(ai.ClientCertificateData) == 0 &amp;&amp; ai.ClientCertificate != "" </span><span class="cov0" title="0">{
+                                if b, err := os.ReadFile(ai.ClientCertificate); err == nil </span><span class="cov0" title="0">{
+                                        ai.ClientCertificateData = b
+                                        ai.ClientCertificate = ""
+                                }</span>
+                        }
+                        <span class="cov0" title="0">if len(ai.ClientKeyData) == 0 &amp;&amp; ai.ClientKey != "" </span><span class="cov0" title="0">{
+                                if b, err := os.ReadFile(ai.ClientKey); err == nil </span><span class="cov0" title="0">{
+                                        ai.ClientKeyData = b
+                                        ai.ClientKey = ""
+                                }</span>
+                        }
+                }
+                <span class="cov0" title="0">if loaded.CurrentContext == "" &amp;&amp; len(loaded.Contexts) &gt; 0 </span><span class="cov0" title="0">{
+                        // Pick first context deterministically.
+                        for name := range loaded.Contexts </span><span class="cov0" title="0">{
+                                loaded.CurrentContext = name
+                                break</span>
+                        }
+                }
+                // Reduce kubeconfig to only the current context to avoid multi-context surprises when provider loads it.
+                <span class="cov0" title="0">cur := loaded.CurrentContext
+                if cur != "" </span><span class="cov0" title="0">{
+                        ctxObj := loaded.Contexts[cur]
+                        if ctxObj != nil </span><span class="cov0" title="0">{
+                                newCfg := &amp;clientcmdapi.Config{CurrentContext: cur, Contexts: map[string]*clientcmdapi.Context{cur: ctxObj}}
+                                if cl := loaded.Clusters[ctxObj.Cluster]; cl != nil </span><span class="cov0" title="0">{
+                                        newCfg.Clusters = map[string]*clientcmdapi.Cluster{ctxObj.Cluster: cl}
+                                }</span>
+                                <span class="cov0" title="0">if ai := loaded.AuthInfos[ctxObj.AuthInfo]; ai != nil </span><span class="cov0" title="0">{
+                                        newCfg.AuthInfos = map[string]*clientcmdapi.AuthInfo{ctxObj.AuthInfo: ai}
+                                }</span>
+                                <span class="cov0" title="0">loaded = newCfg</span>
+                        }
+                }
+        }
+        // Validation: ensure we have usable auth (token or cert/key) and can construct a rest.Config.
+        <span class="cov0" title="0">validated := true
+        clientCfg := clientcmd.NewDefaultClientConfig(*loaded, &amp;clientcmd.ConfigOverrides{})
+        probeCfg, errProbe := clientCfg.ClientConfig()
+        if errProbe != nil </span><span class="cov0" title="0">{
+                validated = false
+        }</span>
+        <span class="cov0" title="0">if validated </span><span class="cov0" title="0">{
+                // Check auth presence.
+                ctxName := loaded.CurrentContext
+                if ctxName == "" </span><span class="cov0" title="0">{
+                        validated = false
+                }</span>
+                <span class="cov0" title="0">if validated </span><span class="cov0" title="0">{
+                        ctxObj := loaded.Contexts[ctxName]
+                        if ctxObj == nil </span><span class="cov0" title="0">{
+                                validated = false
+                        }</span> else<span class="cov0" title="0"> {
+                                auth := loaded.AuthInfos[ctxObj.AuthInfo]
+                                if auth == nil </span><span class="cov0" title="0">{
+                                        validated = false
+                                }</span> else<span class="cov0" title="0"> if len(auth.Token) == 0 &amp;&amp; len(auth.ClientCertificateData) == 0 </span><span class="cov0" title="0">{
+                                        validated = false
+                                }</span>
+                        }
+                }
+                // Optional version probe for validated config.
+                <span class="cov0" title="0">rc := rest.CopyConfig(probeCfg)
+                rc.Timeout = 2 * time.Second
+                if cli, err := rest.RESTClientFor(rc); err == nil </span><span class="cov0" title="0">{
+                        _ = cli.Get().AbsPath("/version").Do(ctx).Error()
+                }</span>
+        }
+        <span class="cov0" title="0">if !validated &amp;&amp; fullFileConfig != nil </span><span class="cov0" title="0">{
+                // Fallback: use full original file kubeconfig verbatim (embed certs/keys already done) without context reduction.
+                loaded = fullFileConfig
+                fmt.Println("[self-kubeconfig] fallback to full file kubeconfig (validation failed)")
+        }</span> else<span class="cov0" title="0"> if !validated </span><span class="cov0" title="0">{
+                fmt.Println("[self-kubeconfig] validation failed and no file kubeconfig; keeping synthetic may be unusable")
+        }</span>
+        <span class="cov0" title="0">data, err := clientcmd.Write(*loaded)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("write kubeconfig failed: %w", err)
+        }</span>
+        <span class="cov0" title="0">sec := &amp;corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: map[string]string{labelKey: "true"}}, Data: map[string][]byte{dataKey: data}}
+        // Create or update.
+        if err := c.Create(ctx, sec); err != nil </span><span class="cov0" title="0">{
+                if apierrors.IsAlreadyExists(err) </span><span class="cov0" title="0">{
+                        // Update content if invalid earlier.
+                        self.Data[dataKey] = data
+                        if err2 := c.Update(ctx, self); err2 != nil </span><span class="cov0" title="0">{
+                                return fmt.Errorf("update self-cluster secret failed: %w", err2)
+                        }</span>
+                        <span class="cov0" title="0">return nil</span>
+                }
+                <span class="cov0" title="0">return fmt.Errorf("create self kubeconfig secret failed: %w", err)</span>
+        }
+        <span class="cov0" title="0">return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package main
+
+import "github.com/openkcm/crypto-edge-operator/internal/multicluster"
+
+func main() <span class="cov0" title="0">{
+        multicluster.RunMulticlusterExample()
+}</span>
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package secretprovider
+
+import (
+        "context"
+        "fmt"
+        "sync"
+
+        "k8s.io/apimachinery/pkg/runtime"
+        "k8s.io/apimachinery/pkg/types"
+        "k8s.io/client-go/rest"
+        "k8s.io/client-go/tools/clientcmd"
+        "sigs.k8s.io/controller-runtime/pkg/client"
+        "sigs.k8s.io/multicluster-runtime/pkg/multicluster"
+
+        corev1 "k8s.io/api/core/v1"
+        kerrors "k8s.io/apimachinery/pkg/api/errors"
+        crcluster "sigs.k8s.io/controller-runtime/pkg/cluster"
+)
+
+// Provider maps cluster names to kubeconfig Secrets (name matches secret name) in a fixed namespace.
+// Clusters are created lazily upon first access. Scheme from host manager is used for object decoding.
+type Provider struct {
+        client    client.Client
+        scheme    *runtime.Scheme
+        namespace string
+        mu        sync.Mutex
+        clusters  map[string]crcluster.Cluster
+}
+
+var _ multicluster.Provider = &amp;Provider{}
+
+func New(c client.Client, scheme *runtime.Scheme, secretNamespace string) *Provider <span class="cov0" title="0">{
+        return &amp;Provider{client: c, scheme: scheme, namespace: secretNamespace, clusters: map[string]crcluster.Cluster{}}
+}</span>
+
+func (p *Provider) Get(ctx context.Context, name string) (crcluster.Cluster, error) <span class="cov0" title="0">{
+        p.mu.Lock()
+        defer p.mu.Unlock()
+        if cl, ok := p.clusters[name]; ok </span><span class="cov0" title="0">{
+                return cl, nil
+        }</span>
+        <span class="cov0" title="0">sec := &amp;corev1.Secret{}
+        if err := p.client.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: name}, sec); err != nil </span><span class="cov0" title="0">{
+                if kerrors.IsNotFound(err) </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("cluster secret %s/%s not found", p.namespace, name)
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("error getting secret %s/%s: %w", p.namespace, name, err)</span>
+        }
+        <span class="cov0" title="0">data, ok := sec.Data["kubeconfig"]
+        if !ok || len(data) == 0 </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("secret %s/%s missing kubeconfig key", p.namespace, name)
+        }</span>
+        <span class="cov0" title="0">cfg, err := buildConfig(data)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed building rest config: %w", err)
+        }</span>
+        <span class="cov0" title="0">cl, err := crcluster.New(cfg, func(o *crcluster.Options) </span><span class="cov0" title="0">{ o.Scheme = p.scheme }</span>)
+        <span class="cov0" title="0">if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed creating cluster: %w", err)
+        }</span>
+        <span class="cov0" title="0">p.clusters[name] = cl
+        return cl, nil</span>
+}
+
+// IndexField: no-op for MVP.
+func (p *Provider) IndexField(ctx context.Context, obj client.Object, fieldName string, indexerFunc client.IndexerFunc) error <span class="cov0" title="0">{
+        return nil
+}</span>
+
+// List returns names of constructed clusters.
+func (p *Provider) List(ctx context.Context) ([]string, error) <span class="cov0" title="0">{
+        p.mu.Lock()
+        defer p.mu.Unlock()
+        out := make([]string, 0, len(p.clusters))
+        for n := range p.clusters </span><span class="cov0" title="0">{
+                out = append(out, n)
+        }</span>
+        <span class="cov0" title="0">return out, nil</span>
+}
+
+func buildConfig(kubeconfig []byte) (*rest.Config, error) <span class="cov0" title="0">{
+        raw, err := clientcmd.Load(kubeconfig)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+        <span class="cov0" title="0">clientCfg := clientcmd.NewDefaultClientConfig(*raw, &amp;clientcmd.ConfigOverrides{})
+        return clientCfg.ClientConfig()</span>
+}
+
+// Start implements ProviderRunnable (optional). We don't need background work; just block until context done.
+// Start placeholder (no-op)
+// Start implements ProviderRunnable (optional). Block until context done.
+// Start placeholder (no-op)
+// Start implements Provider's background tasks (none for now)
+func (p *Provider) Start(ctx context.Context) error <span class="cov0" title="0">{ &lt;-ctx.Done(); return ctx.Err() }</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
