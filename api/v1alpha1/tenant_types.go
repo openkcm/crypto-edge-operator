@@ -1,8 +1,9 @@
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TenantPhase enumerates simple lifecycle states.
@@ -41,10 +42,10 @@ type TenantStatus struct {
 // Tenant is the Schema for the tenants API.
 type Tenant struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:modernize
 
-	Spec   TenantSpec   `json:"spec,omitempty"`
-	Status TenantStatus `json:"status,omitempty"`
+	Spec   TenantSpec   `json:"spec,omitempty"`   //nolint:modernize
+	Status TenantStatus `json:"status,omitempty"` //nolint:modernize
 }
 
 // +kubebuilder:object:root=true
@@ -52,14 +53,12 @@ type Tenant struct {
 // TenantList contains a list of Tenant.
 type TenantList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata,omitempty"` //nolint:modernize
 
 	Items []Tenant `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Tenant{}, &TenantList{})
-}
+// Registration of types is handled in groupversion_info.go
 
 // GetObjectKind returns the ObjectKind for Tenant.
 // GetObjectKind returns the ObjectKind for Tenant.

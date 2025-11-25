@@ -14,3 +14,7 @@ var (
 	// AddToScheme adds the types to the scheme
 	AddToScheme = SchemeBuilder.AddToScheme
 )
+
+func init() { // Register API types
+	SchemeBuilder.Register(&Tenant{}, &TenantList{})
+}
