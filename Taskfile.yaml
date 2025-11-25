@@ -24,12 +24,12 @@ tasks:
     vars:
       ENVTEST_K8S_VERSION: '{{ env "ENVTEST_K8S_VERSION" | default ( .ENVTEST_K8S_VERSION | default "1.30.0" ) }}'
     cmds:
-    - |
+    - |-
       set -euo pipefail
+      export GITHUB_EVENT_PATH=${GITHUB_EVENT_PATH:-/dev/null}
       PROJECT_ROOT="{{.ROOT_DIR}}"
       NESTED_MODULES="cmd internal controllers multicluster"
       CODE_DIRS="{{.CODE_DIRS}}"
-      # Prefer upstream script if coverage tool present; else custom lightweight recursion without -coverprofile.
       if go tool covdata -h >/dev/null 2>&1; then
         PROJECT_ROOT="$PROJECT_ROOT" NESTED_MODULES="$NESTED_MODULES" KUBEBUILDER_ASSETS="$( (test -f "$PROJECT_ROOT/bin/assets_path" && cat "$PROJECT_ROOT/bin/assets_path") || echo "")" ENVTEST_K8S_VERSION="{{.ENVTEST_K8S_VERSION}}" "$PROJECT_ROOT"/hack/common/run-tests.sh "$CODE_DIRS"
       else
@@ -37,6 +37,15 @@ tasks:
         for m in $NESTED_MODULES; do
           if [ -d "$PROJECT_ROOT/$m" ]; then (cd "$PROJECT_ROOT/$m"; go test ./... || exit 1); fi
         done
-        # root module tests (limit to requested code dirs pattern)
         (cd "$PROJECT_ROOT"; go test $CODE_DIRS || true)
       fi
+  build:bin:val:test:
+    desc: "Override nested build:bin:val:test to bypass covdata when unavailable."
+    run: once
+    cmds:
+    - task: val:test
+  build:img:build:bin:val:test:
+    desc: "Override deeply nested build:img:build:bin:val:test to bypass covdata when unavailable."
+    run: once
+    cmds:
+    - task: val:test
