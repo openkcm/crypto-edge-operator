@@ -2,19 +2,21 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
 )
@@ -22,6 +24,7 @@ import (
 // TenantReconciler reconciles a Tenant object
 type TenantReconciler struct {
 	client.Client
+
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
 }
@@ -81,7 +84,7 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !useHostFallback {
 		kubeconfigBytes, ok := secret.Data["kubeconfig"]
 		if !ok || len(kubeconfigBytes) == 0 {
-			logger.Error(fmt.Errorf("kubeconfig secret missing 'kubeconfig' key"), "invalid secret data; using host fallback")
+			logger.Error(errors.New("kubeconfig secret missing 'kubeconfig' key"), "invalid secret data; using host fallback")
 			useHostFallback = true
 		} else {
 			// Build remote rest.Config from kubeconfig bytes.
@@ -109,7 +112,7 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 							useHostFallback = true
 						} else {
 							logger.Info("remote connectivity OK", "sampleNamespaces", len(nsList.Items), "apiServer", remoteHost)
-							r.Recorder.Event(tenant, corev1.EventTypeNormal, "RemoteOK", fmt.Sprintf("remote api reachable host=%s", remoteHost))
+							r.Recorder.Event(tenant, corev1.EventTypeNormal, "RemoteOK", "remote api reachable host="+remoteHost)
 						}
 					}
 				}
@@ -141,7 +144,7 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			if err2 := remoteClient.Create(ctx, create); err2 != nil {
 				logger.Error(err2, "failed to create workspace namespace", "workspace", tenant.Spec.Workspace)
 				r.Recorder.Event(tenant, corev1.EventTypeWarning, "WorkspaceCreateFailed", err2.Error())
-				r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, fmt.Sprintf("namespace create failed: %v", err2))
+				r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, "namespace create failed: "+err2.Error())
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 			}
 			logger.Info("workspace namespace created", "workspace", tenant.Spec.Workspace)
@@ -149,7 +152,7 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		} else {
 			logger.Error(err, "error checking workspace namespace", "workspace", tenant.Spec.Workspace)
 			r.Recorder.Event(tenant, corev1.EventTypeWarning, "WorkspaceCheckFailed", err.Error())
-			r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, fmt.Sprintf("namespace check failed: %v", err))
+			r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, "namespace check failed: "+err.Error())
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 	} else {
@@ -178,7 +181,7 @@ func (r *TenantReconciler) setStatus(ctx context.Context, t *platformv1alpha1.Te
 		LastTransitionTime: metav1.Now(),
 		Reason:             string(phase),
 		Message:            msg,
-		ObservedGeneration: t.ObjectMeta.Generation,
+		ObservedGeneration: t.Generation,
 	}
 	replaced := false
 	for i, c := range t.Status.Conditions {
@@ -201,5 +204,5 @@ func (r *TenantReconciler) setStatus(ctx context.Context, t *platformv1alpha1.Te
 
 // SetupWithManager not supported under multicluster signature; use multicluster builder.
 func (r *TenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return fmt.Errorf("SetupWithManager not supported for multicluster; use mcbuilder in main")
+	return errors.New("SetupWithManager not supported for multicluster; use mcbuilder in main")
 }
