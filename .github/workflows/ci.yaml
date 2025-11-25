@@ -1,23 +1,18 @@
-name: Quality
+name: CI
 
 on:
   push:
     tags:
       - v*
     branches:
+      - feature/init
       - main
-    paths-ignore:
-      - 'charts/**'
-      - 'docs/**'
-      - 'LICENSES/**'
-      - '.releases/**'
-      - '.github/**'
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  check:
-    uses: openkcm/build/.github/workflows/ci.svc.yaml@main
+  build_validate_test:
+    uses: openmcp-project/build/.github/workflows/ci.lib.yaml@main
     secrets: inherit
