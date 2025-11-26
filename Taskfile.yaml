@@ -6,6 +6,6 @@ includes:
     flatten: true
     excludes: [] # put task names in here which are overwritten in this file
     vars:
-      CODE_DIRS: '{{.ROOT_DIR}}/... {{.ROOT_DIR}}/cmd/... {{.ROOT_DIR}}/api/... {{.ROOT_DIR}}/crds/... {{.ROOT_DIR}}/internal/...'
+      CODE_DIRS: '{{.ROOT_DIR}}/... {{.ROOT_DIR}}/cmd/... {{.ROOT_DIR}}/api/... {{.ROOT_DIR}}/internal/...'
       COMPONENTS: 'crypto-edge-operator'
       REPO_URL: 'https://github.com/openkcm/crypto-edge-operator'
