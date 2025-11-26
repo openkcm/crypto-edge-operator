@@ -2,45 +2,10 @@ version: 3
 
 includes:
   shared:
-    taskfile: hack/common/Taskfile_controller.yaml
+    taskfile: hack/common/Taskfile_service.yaml
     flatten: true
-    excludes: [validate:test] # local override provided in this Taskfile
+    excludes: [] # put task names in here which are overwritten in this file
     vars:
-      NESTED_MODULES: 'cmd internal controllers multicluster'
-      API_DIRS: '{{.ROOT_DIR}}/api/...'
-      MANIFEST_OUT: '{{.ROOT_DIR}}/api/crds/'
-      CODE_DIRS: '{{.ROOT_DIR}}/cmd/...'
-      COMPONENTS: 'openmcp-operator'
+      CODE_DIRS: '{{.ROOT_DIR}}/... {{.ROOT_DIR}}/cmd/... {{.ROOT_DIR}}/api/... {{.ROOT_DIR}}/crds/... {{.ROOT_DIR}}/internal/...'
+      COMPONENTS: 'crypto-edge-operator'
       REPO_URL: 'https://github.com/openkcm/crypto-edge-operator'
-      GENERATE_DOCS_INDEX: "true"
-      CHART_COMPONENTS: "[]"
-      CRDS_COMPONENTS: "crypto-edge-operator"
-      CRDS_PATH: '{{.ROOT_DIR}}/charts/crds/'
-
-tasks:
-  val:test:
-    desc: "Run tests with fallback when coverage tooling unavailable."
-    run: once
-    vars:
-      ENVTEST_K8S_VERSION: '{{ env "ENVTEST_K8S_VERSION" | default ( .ENVTEST_K8S_VERSION | default "1.30.0" ) }}'
-    cmds:
-    - |-
-      set -euo pipefail
-      export GITHUB_EVENT_PATH=${GITHUB_EVENT_PATH:-/dev/null}
-      PROJECT_ROOT="{{.ROOT_DIR}}"
-      NESTED_MODULES="cmd internal controllers multicluster"
-      CODE_DIRS="{{.CODE_DIRS}}"
-      if go tool covdata -h >/dev/null 2>&1; then
-        PROJECT_ROOT="$PROJECT_ROOT" NESTED_MODULES="$NESTED_MODULES" KUBEBUILDER_ASSETS="$( (test -f "$PROJECT_ROOT/bin/assets_path" && cat "$PROJECT_ROOT/bin/assets_path") || echo "")" ENVTEST_K8S_VERSION="{{.ENVTEST_K8S_VERSION}}" "$PROJECT_ROOT"/hack/common/run-tests.sh "$CODE_DIRS"
-      else
-        echo "(fallback: running tests without coverage)" >&2
-        for m in $NESTED_MODULES; do
-          if [ -d "$PROJECT_ROOT/$m" ]; then (cd "$PROJECT_ROOT/$m"; go test ./... || exit 1); fi
-        done
-        (cd "$PROJECT_ROOT"; go test $CODE_DIRS || true)
-      fi
-  validate:test:
-    desc: "Override upstream validate:test to use local fallback."
-    run: once
-    cmds:
-    - task: val:test
