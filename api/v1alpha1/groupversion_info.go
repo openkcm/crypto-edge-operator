@@ -1,8 +1,8 @@
 // Package v1alpha1 contains the API types for the
-// platform.example.com group at version v1alpha1.
+// mesh.openkcm.io group at version v1alpha1.
 //
 // +kubebuilder:object:generate=true
-// +groupName=platform.example.com
+// +groupName=mesh.openkcm.io
 package v1alpha1
 
 import (
@@ -10,8 +10,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-// GroupVersion for platform.example.com API group
-var GroupVersion = schema.GroupVersion{Group: "platform.example.com", Version: "v1alpha1"}
+// GroupVersion for mesh.openkcm.io API group
+var GroupVersion = schema.GroupVersion{Group: "mesh.openkcm.io", Version: "v1alpha1"}
 
 var (
 	// SchemeBuilder registers our API types

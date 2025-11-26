@@ -18,7 +18,7 @@ import (
 
 // Embed the Tenant CRD manifest for on-demand apply to discovered clusters.
 //
-//go:embed platform.example.com_tenants.yaml
+//go:embed mesh.openkcm.io_tenants.yaml
 var tenantCRDYAML []byte
 
 var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
@@ -26,7 +26,7 @@ var decUnstructured = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONSc
 // EnsureTenantCRD applies the Tenant CRD into the target cluster if it is not present.
 // It is intentionally lightweight and only checks for presence by name.
 func EnsureTenantCRD(ctx context.Context, c client.Client) error {
-	crdName := "tenants.platform.example.com"
+	crdName := "tenants.mesh.openkcm.io"
 	crd := &unstructured.Unstructured{}
 	crd.SetAPIVersion("apiextensions.k8s.io/v1")
 	crd.SetKind("CustomResourceDefinition")

@@ -1,5 +1,5 @@
 # Minimal Tenant manifest for a remote cluster (no clusterRef; apply directly on that cluster)
-apiVersion: platform.example.com/v1alpha1
+apiVersion: mesh.openkcm.io/v1alpha1
 kind: Tenant
 metadata:
   name: demo-remote-tenant

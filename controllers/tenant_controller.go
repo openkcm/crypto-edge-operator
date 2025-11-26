@@ -30,8 +30,8 @@ type TenantReconciler struct {
 }
 
 // RBAC markers for future controller-gen usage (currently manual manifests provided under config/rbac).
-// +kubebuilder:rbac:groups=platform.example.com,resources=tenants,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=platform.example.com,resources=tenants/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=mesh.openkcm.io,resources=tenants,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=mesh.openkcm.io,resources=tenants/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update;get;list;watch

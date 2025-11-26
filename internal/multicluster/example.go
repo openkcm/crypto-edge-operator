@@ -162,7 +162,7 @@ func RunMulticlusterExample() {
 				ev.LastTimestamp = ev.FirstTimestamp
 				ev.Source = corev1.EventSource{Component: "multicluster-tenants"}
 				// Populate deprecated fields still required by validation for corev1.Event objects.
-				ev.ReportingController = "platform.example.com/multicluster-tenants"
+				ev.ReportingController = "mesh.openkcm.io/multicluster-tenants"
 				instName := os.Getenv("POD_NAME")
 				if instName == "" {
 					instName = os.Getenv("HOSTNAME")
@@ -224,7 +224,7 @@ func RunMulticlusterExample() {
 			sort.Strings(valKeys)
 			// values intentionally empty
 			fingerprint := hex.EncodeToString(fpHasher.Sum(nil))
-			annoKey := "platform.example.com/fingerprint-" + req.ClusterName
+			annoKey := "mesh.openkcm.io/fingerprint-" + req.ClusterName
 			prevFP := tenant.Annotations[annoKey]
 			if tenant.Annotations == nil {
 				tenant.Annotations = map[string]string{}

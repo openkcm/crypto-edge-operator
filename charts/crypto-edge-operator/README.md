@@ -1,6 +1,6 @@
 # crypto-edge-operator Helm Chart
 
-Helm chart to deploy the Crypto Edge Operator responsible for reconciling `Tenant` custom resources (CRD: `tenants.platform.example.com`).
+Helm chart to deploy the Crypto Edge Operator responsible for reconciling `Tenant` custom resources (CRD: `tenants.mesh.openkcm.io`).
 
 ## Features
 - Deploys controller manager Deployment
@@ -48,7 +48,7 @@ helm uninstall crypto-edge-operator -n crypto-edge-system
 ```
 The CRD will remain (Helm leaves CRDs by default); delete manually if desired:
 ```bash
-kubectl delete crd tenants.platform.example.com
+kubectl delete crd tenants.mesh.openkcm.io
 ```
 
 ## Development

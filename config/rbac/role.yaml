@@ -3,10 +3,10 @@ kind: ClusterRole
 metadata:
   name: tenant-operator-role
 rules:
-  - apiGroups: ["platform.example.com"]
+  - apiGroups: ["mesh.openkcm.io"]
     resources: ["tenants"]
     verbs: ["get", "list", "watch", "update", "patch"]
-  - apiGroups: ["platform.example.com"]
+  - apiGroups: ["mesh.openkcm.io"]
     resources: ["tenants/status"]
     verbs: ["get", "update", "patch"]
   - apiGroups: [""]

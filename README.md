@@ -51,7 +51,7 @@ If you find any bug that may be a security problem, please follow our instructio
 
 ```bash
 kubectl delete tenant -A --all    # if safe; or selectively recreate
-kubectl apply -f config/crd/bases/platform.example.com_tenants.yaml
+kubectl apply -f config/crd/bases/mesh.openkcm.io_tenants.yaml
 ```
 
 Then create new Tenants with only `spec.workspace` (and optional `spec.clusterRef`). Chart selection is now purely an operator deployment concern.
@@ -75,7 +75,7 @@ Status Conditions use cluster-scoped types (e.g. `ClusterReady/<cluster>` / `Clu
 
 ### Fingerprinting
 
-An annotation `platform.example.com/fingerprint-<cluster>` is set on the Tenant after successful install/upgrade. Update logic currently performs a direct object Update; future improvement will switch to a PATCH with retries and emit FingerprintUpdated / FingerprintUpdateFailed events.
+An annotation `mesh.openkcm.io/fingerprint-<cluster>` is set on the Tenant after successful install/upgrade. Update logic currently performs a direct object Update; future improvement will switch to a PATCH with retries and emit FingerprintUpdated / FingerprintUpdateFailed events.
 
 ### Troubleshooting
 
@@ -101,11 +101,11 @@ Multi-cluster Kubernetes operator that deploys a Helm chart for each `Tenant` cu
   - Ensure workspace namespace exists (`spec.workspace`).
   - Resolve Helm chart (repo URL + name + version) and values map.
   - Compute fingerprint (sha256 of repo|name|version|sorted key=value pairs) per cluster; skip Helm action if unchanged.
-  - Install or upgrade release (`tenant-<name>-<cluster>`), update annotation `platform.example.com/fingerprint-<cluster>`.
+  - Install or upgrade release (`tenant-<name>-<cluster>`), update annotation `mesh.openkcm.io/fingerprint-<cluster>`.
   - Upsert per-cluster status conditions and aggregate top-level `status.phase`.
 
 ## Tenant CRD
-Defined in `api/v1alpha1/tenant_types.go` (embedded YAML in `internal/multicluster/platform.example.com_tenants.yaml`).
+Defined in `api/v1alpha1/tenant_types.go` (embedded YAML in `internal/multicluster/mesh.openkcm.io_tenants.yaml`).
 
 Spec example:
 ```yaml
@@ -131,7 +131,7 @@ status:
       status: "True"
       reason: InstallFailed|UpgradeFailed|ChartNotLoaded
 ```
-Fingerprint stored per cluster in annotation: `platform.example.com/fingerprint-<cluster>`.
+Fingerprint stored per cluster in annotation: `mesh.openkcm.io/fingerprint-<cluster>`.
 
 ## Build & Run
 ```bash
@@ -242,7 +242,7 @@ Multi-cluster operator that installs a Helm chart (e.g., cert-manager) into a te
 MVP scaffold. Multi-cluster runtime integration and full Helm implementation marked as TODO.
 
 ## Tenant CRD (MVP Fields)
-See `config/crd/bases/platform.example.com_tenants.yaml` and `api/v1alpha1/tenant_types.go`.
+See `config/crd/bases/mesh.openkcm.io_tenants.yaml` and `api/v1alpha1/tenant_types.go`.
 
 ## Quick Dev Loop
 ```bash
