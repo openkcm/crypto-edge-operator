@@ -177,6 +177,10 @@ tolerations: []
 
 affinity: {}
 
+# Installation mode: when true, install only CRDs and RBAC; skip Deployment/Service/etc.
+installMode:
+  crdsRbacOnly: false
+
 # Central Helm chart configuration passed as flags to the operator.
 chart:
   repo: "https://charts.jetstack.io"

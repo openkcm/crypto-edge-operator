@@ -33,6 +33,7 @@ helm install crypto-edge-operator ./charts/crypto-edge-operator \
 | `replicaCount` | Desired replicas (unless autoscaling enabled) | `1` |
 | `serviceAccount.create` | Create SA | `true` |
 | `namespace` | Override target namespace for resources | (release namespace) |
+| `installMode.crdsRbacOnly` | Install only CRDs and RBAC; skip Deployment/Service | `false` |
 | `chart.repo` | Central Helm chart repository URL | `https://charts.jetstack.io` |
 | `chart.name` | Central Helm chart name | `cert-manager` |
 | `chart.version` | Central Helm chart version | `1.19.1` |
@@ -42,6 +43,22 @@ helm install crypto-edge-operator ./charts/crypto-edge-operator \
 | `discovery.kubeconfigKey` | Data key for kubeconfig content (`-kubeconfig-key`) | `kubeconfig` |
 | `populateArgs` | Auto-generate container args from values | `true` |
 ## Operator Flags via Values
+### CRDs/RBAC-only Mode
+
+Set `installMode.crdsRbacOnly=true` to install only the `Tenant` CRD and RBAC bindings on the target cluster. In this mode:
+- No ServiceAccount is created unless `serviceAccount.create=true`. Set `serviceAccount.create=false` to use an existing ServiceAccount.
+- The `ClusterRoleBinding` will reference the name from `serviceAccount.name`. Ensure that ServiceAccount exists in the release namespace.
+- The Deployment, Service, HPA, and PDB resources are skipped.
+
+Example:
+```bash
+helm install tenants-crds-rbac ./charts/crypto-edge-operator \
+  --set installMode.crdsRbacOnly=true \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=crypto-edge-operator \
+  --namespace platform-system --create-namespace
+```
+
 
 If `populateArgs=true` and `image.args` is empty, the chart will synthesize container args:
 

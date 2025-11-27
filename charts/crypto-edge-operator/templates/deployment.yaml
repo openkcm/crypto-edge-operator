@@ -1,3 +1,4 @@
+{{- if not .Values.installMode.crdsRbacOnly }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -32,6 +33,7 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+    {{- end }}
       initContainers:
       {{- with .Values.extraInitContainers }}
         {{- toYaml . | nindent 8 }}

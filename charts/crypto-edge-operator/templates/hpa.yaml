@@ -1,1 +1,2 @@
+{{- if and .Values.autoscaling.enabled (not .Values.installMode.crdsRbacOnly) }}
 {{/* HPA removed; template intentionally left empty */}}

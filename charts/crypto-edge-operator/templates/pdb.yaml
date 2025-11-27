@@ -1,4 +1,4 @@
-{{- if .Values.podDisruptionBudget.enabled }}
+{{- if and .Values.podDisruptionBudget.enabled (not .Values.installMode.crdsRbacOnly) }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
@@ -6,7 +6,7 @@ metadata:
   name: {{ include "crypto-edge-operator.fullname" . }}
   namespace: {{ include "crypto-edge-operator.namespace" . }}
   labels:
-    {{- include "checcrypto-edge-operatorker.labels" . | nindent 4 }}
+    {{- include "crypto-edge-operator.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:

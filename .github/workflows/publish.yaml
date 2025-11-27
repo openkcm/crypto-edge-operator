@@ -16,6 +16,7 @@ permissions:
 
 env:
   OCI_URL: ghcr.io/openkcm
+  DOCKERFILE_IDENTIFIER: crypto-edge-operator
 
 jobs:
   released:

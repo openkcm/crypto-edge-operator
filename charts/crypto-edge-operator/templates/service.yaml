@@ -1,4 +1,5 @@
 {{- if .Values.service.enabled }}
+{{- if not .Values.installMode.crdsRbacOnly }}
 ---
 apiVersion: v1
 kind: Service
@@ -22,4 +23,5 @@ spec:
   {{- end }}
   selector:
     {{- include "crypto-edge-operator.selectorLabels" . | nindent 4 }}
+{{- end }}
 {{- end }}
