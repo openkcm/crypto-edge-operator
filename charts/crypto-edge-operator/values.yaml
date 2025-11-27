@@ -25,7 +25,7 @@ replicaCount: 1
 image:
   registry: ghcr.io/openkcm
   repository: images/crypto-edge-operator
-  tag: "v0.1.0" # defaults to Chart.appVersion if empty
+  tag: "v0.2.0" # defaults to Chart.appVersion if empty
   digest: "" # optional sha256 digest overrides tag
   pullPolicy: IfNotPresent
   command: ["/crypto-edge-operator"]
