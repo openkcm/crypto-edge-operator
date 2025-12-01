@@ -1,7 +1,7 @@
 ###############################################
 # Builder stage: compile operator binary
 ###############################################
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
@@ -11,6 +11,7 @@ ARG COMMIT=unknown
 WORKDIR /workspace
 
 RUN apk add --no-cache git
+ENV GOTOOLCHAIN=auto
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -25,6 +26,8 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 # Final stage: minimal runtime image
 ###############################################
 FROM alpine:3.20 AS runtime
+ARG VERSION=dev
+ARG COMMIT=unknown
 RUN apk add --no-cache ca-certificates bash busybox coreutils curl
 WORKDIR /
 COPY --from=builder /workspace/crypto-edge-operator /crypto-edge-operator
