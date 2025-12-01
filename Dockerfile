@@ -33,7 +33,13 @@ WORKDIR /
 COPY --from=builder /workspace/crypto-edge-operator /crypto-edge-operator
 USER 65532:65532
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-	TZ=UTC
+	TZ=UTC \
+	HELM_CACHE_HOME=/.cache/helm \
+	HELM_CONFIG_HOME=/.config/helm \
+	HELM_DATA_HOME=/.local/share/helm
+# Pre-create writable helm cache/config/data directories for non-root UID
+RUN mkdir -p /.cache/helm/repository /.config/helm /.local/share/helm && \
+	chown -R 65532:65532 /.cache /.config /.local
 ENTRYPOINT ["/crypto-edge-operator"]
 CMD ["-help"]
 
