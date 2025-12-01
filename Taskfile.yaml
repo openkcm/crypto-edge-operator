@@ -9,4 +9,4 @@ includes:
       CODE_DIRS: '{{.ROOT_DIR}}/... {{.ROOT_DIR}}/cmd/... {{.ROOT_DIR}}/api/... {{.ROOT_DIR}}/internal/...'
       COMPONENTS: 'crypto-edge-operator'
       REPO_URL: 'https://github.com/openkcm/crypto-edge-operator'
-      DOCKERFILE_IDENTIFIER: crypto-edge-operator
+      DOCKER_FILE_IDENTIFIER: crypto-edge-operator
