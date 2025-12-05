@@ -20,7 +20,7 @@ log() { printf "[e2e] %s\n" "$*"; }
 cleanup() {
   set +e
   if [ -n "$OP_PID" ] && kill -0 $OP_PID 2>/dev/null; then
-    log "sending TERM to operator PID=$OP_PID"
+    log "cleanup: sending TERM to operator PID=$OP_PID"
     kill $OP_PID 2>/dev/null || true
     # Wait up to 5s
     for i in {1..10}; do
@@ -28,9 +28,11 @@ cleanup() {
       sleep 0.5
     done
     if kill -0 $OP_PID 2>/dev/null; then
-      log "operator not exited; sending KILL"
+      log "cleanup: operator not exited; sending KILL"
       kill -9 $OP_PID 2>/dev/null || true
     fi
+  else
+    log "cleanup: operator already terminated or not started"
   fi
   log "tearing down kind clusters"
   kind delete cluster --name "$HOME_CLUSTER" 2>/dev/null || true
@@ -90,16 +92,62 @@ kubectl -n "$NAMESPACE" create secret generic "$REMOTE_SECRET" --from-file=kubec
 log "build operator (cmd/crypto-edge-operator)"
 GO111MODULE=on go build -o /tmp/cryptoedge-operator ./cmd/crypto-edge-operator
 
+log "apply RBAC (namespace delete permissions) to remote cluster"
+kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f config/rbac/role.yaml
+kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f config/rbac/rolebinding.yaml
+# Grant namespace delete to the kubeconfig user used by the operator (out-of-cluster run)
+USER_NAME=$(kubectl config view --kubeconfig /tmp/remote-kind.kubeconfig -o jsonpath='{.users[0].name}')
+cat > /tmp/crypto-edge-operator-e2e-user-binding.yaml << 'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crypto-edge-operator-e2e-user-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get","list","watch","create","update","patch","delete"]
+  - apiGroups: ["mesh.openkcm.io"]
+    resources: ["tenants","tenants/status"]
+    verbs: ["get","list","watch","create","update","patch","delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: crypto-edge-operator-e2e-user-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: crypto-edge-operator-e2e-user-role
+subjects:
+  - kind: User
+    name: ${USER_NAME}
+EOF
+kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f /tmp/crypto-edge-operator-e2e-user-binding.yaml
+
 log "start operator (background)"
 # Require actual chart install (do not skip on non-fatal repo errors for this test).
 unset ALLOW_CHART_SKIP || true
-(KUBECONFIG=/tmp/home-kind.kubeconfig /tmp/cryptoedge-operator \
+# Set Helm cache/config/data to writable temp locations for local runs
+HELM_TMP_ROOT="/tmp/cryptoedge-helm"
+mkdir -p "$HELM_TMP_ROOT/cache/helm/repository" "$HELM_TMP_ROOT/config/helm" "$HELM_TMP_ROOT/data/helm"
+export HELM_CACHE_HOME="$HELM_TMP_ROOT/cache/helm"
+export HELM_CONFIG_HOME="$HELM_TMP_ROOT/config/helm"
+export HELM_DATA_HOME="$HELM_TMP_ROOT/data/helm"
+touch "$HELM_CONFIG_HOME/repositories.yaml"
+(export HELM_REPOSITORY_CONFIG="$HELM_CONFIG_HOME/repositories.yaml"
+ export HELM_REPOSITORY_CACHE="$HELM_CACHE_HOME/repository"
+ export HELM_REGISTRY_CONFIG="$HELM_CONFIG_HOME/registry.json"
+(KUBECONFIG=/tmp/home-kind.kubeconfig HELM_CACHE_HOME="$HELM_CACHE_HOME" HELM_CONFIG_HOME="$HELM_CONFIG_HOME" HELM_DATA_HOME="$HELM_DATA_HOME" /tmp/cryptoedge-operator \
   -namespace "$NAMESPACE" \
   -kubeconfig-label sigs.k8s.io/multicluster-runtime-kubeconfig \
   -kubeconfig-key kubeconfig \
   -chart-repo "$CHART_REPO" \
   -chart-name "$CHART_NAME" \
   -chart-version "$CHART_VERSION") &
+)
 OP_PID=$!
 echo $OP_PID > /tmp/cryptoedge-operator.pid
 sleep 6
@@ -185,8 +233,22 @@ fi
 log "verify cert-manager pods running"
 KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get pods -n "$WORKSPACE_NS"
 
+# Delete tenant and verify cleanup (helm uninstall + namespace delete)
+log "delete tenant on remote and home clusters"
+kubectl --kubeconfig /tmp/remote-kind.kubeconfig delete tenant "$TENANT_NAME" -n "$NAMESPACE"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig delete tenant "$TENANT_NAME" -n "$NAMESPACE"
+
+log "wait for namespace deletion on remote cluster"
+for i in {1..120}; do
+  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get ns "$WORKSPACE_NS" >/dev/null 2>&1 || break
+  sleep 2
+  [ $i -eq 120 ] && { log "namespace $WORKSPACE_NS not deleted in remote cluster"; exit 1; }
+done
+log "workspace namespace deleted on remote cluster"
+
 log "terminate operator (explicit)"
 if [ -n "$OP_PID" ] && kill -0 $OP_PID 2>/dev/null; then
+  log "operator still running, sending TERM signal"
   kill $OP_PID || true
   for i in {1..10}; do
     kill -0 $OP_PID 2>/dev/null || break
@@ -196,7 +258,14 @@ if [ -n "$OP_PID" ] && kill -0 $OP_PID 2>/dev/null; then
     log "force killing operator"
     kill -9 $OP_PID 2>/dev/null || true
   fi
+else
+  log "operator already terminated"
 fi
+# Clear PID so cleanup trap doesn't try to kill it again
+OP_PID=""
 rm -f /tmp/cryptoedge-operator.pid
+
+# Cleanup temp Helm dirs
+rm -rf "$HELM_TMP_ROOT"
 
 log "e2e passed"
