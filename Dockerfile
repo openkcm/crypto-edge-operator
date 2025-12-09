@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 ###############################################
 # Final stage: minimal runtime image
 ###############################################
-FROM alpine:3.20 AS runtime
+FROM alpine:3.23 AS runtime
 ARG VERSION=dev
 ARG COMMIT=unknown
 RUN apk add --no-cache ca-certificates bash busybox coreutils curl
