@@ -4,7 +4,7 @@ GO ?= go
 IMG ?= cryptoedgeoperator:dev
 PKG := github.com/cryptoedge/cryptoedgeoperator
 
-.PHONY: all build run run-pid stop tidy fmt vet generate test e2e-kind
+.PHONY: all build run run-pid stop tidy fmt vet generate test e2e-kind e2e-full
 
 all: build
 
@@ -47,3 +47,6 @@ test:
 
 e2e-kind:
 	./hack/e2e-kind.sh
+
+e2e-full:
+	bash hack/e2e-full.sh

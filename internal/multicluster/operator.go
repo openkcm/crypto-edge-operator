@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -41,6 +43,9 @@ import (
 	platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
 	helmutil "github.com/openkcm/crypto-edge-operator/internal/helmutil"
 )
+
+// Guard to block Helm upgrades/installs while a release is being deleted.
+var deletingReleases sync.Map // key: release name (string), value: bool
 
 // RunOperator starts a multicluster manager that reconciles Tenants across discovered clusters.
 //
@@ -77,6 +82,10 @@ func RunOperator() {
 	}
 	if os.Getenv("HELM_REGISTRY_CONFIG") == "" {
 		os.Setenv("HELM_REGISTRY_CONFIG", "/.config/helm/registry.json")
+	}
+	// Ensure Helm driver defaults to secret for Kubernetes-backed storage when unset
+	if os.Getenv("HELM_DRIVER") == "" {
+		os.Setenv("HELM_DRIVER", "secret")
 	}
 
 	ctrllog.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -135,20 +144,111 @@ func RunOperator() {
 			}
 			// Defensive: ensure Tenant type registered in scheme (in case of edge re-engagement scenarios).
 			_ = platformv1alpha1.AddToScheme(cl.GetScheme())
-			// Ensure CRD exists on this cluster before attempting to fetch local Tenant objects.
+			// Best-effort: if CRD is missing, continue to allow cleanup paths to run.
 			if err := EnsureTenantCRD(ctx, cl.GetClient()); err != nil {
-				log.Error(err, "ensure Tenant CRD failed")
-				return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+				log.V(1).Info("tenant CRD not ensured; proceeding with best-effort cleanup", "err", err)
 			}
 			// Fetch Tenant from THIS cluster (model: each cluster stores its own Tenant objects; no home shadow propagation).
 			tenant := &platformv1alpha1.Tenant{}
 			if err := cl.GetClient().Get(ctx, req.NamespacedName, tenant); err != nil {
-				if apierrors.IsNotFound(err) {
-					log.V(1).Info("tenant not found in cluster cache; skipping")
+				// Treat NotFound and "no match" errors (CRD removed) as cleanup triggers
+				if apierrors.IsNotFound(err) || strings.Contains(strings.ToLower(err.Error()), "no match") {
+					// Cleanup on NotFound: attempt Helm uninstall across namespaces even if initial config fails
+					log.Info("tenant not found; starting NotFound helm cleanup")
+					releaseName := fmt.Sprintf("tenant-%s-%s", req.Name, req.ClusterName)
+					deletingReleases.Store(releaseName, true)
+					remoteCfg := cl.GetConfig()
+					getter := helmutil.NewRemoteRESTClientGetter(remoteCfg)
+					// Always attempt across namespaces as a last resort
+					attemptUninstall := func(namespace string) bool {
+						cfg := new(action.Configuration)
+						if err3 := cfg.Init(getter, namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) { log.V(1).Info(fmt.Sprintf(format, v...)) }); err3 != nil {
+							log.V(1).Info("helm config init failed for namespace", "ns", namespace, "err", err3)
+							return false
+						}
+						un := action.NewUninstall(cfg)
+						un.Timeout = 120 * time.Second
+						un.IgnoreNotFound = true
+						if _, unErr := un.Run(releaseName); unErr != nil && !strings.Contains(strings.ToLower(unErr.Error()), "release: not found") {
+							log.V(1).Info("helm uninstall attempt failed", "ns", namespace, "err", unErr)
+							return false
+						}
+						log.Info("helm uninstall on NotFound success", "release", releaseName, "ns", namespace)
+						return true
+					}
+					// Try to discover release namespace with a best-effort config
+					aCfg := new(action.Configuration)
+					if err2 := aCfg.Init(getter, "default", os.Getenv("HELM_DRIVER"), func(format string, v ...any) { log.V(1).Info(fmt.Sprintf(format, v...)) }); err2 == nil {
+						lst := action.NewList(aCfg)
+						lst.All = true
+						if rels, lErr := lst.Run(); lErr == nil {
+							for _, r := range rels {
+								if r.Name == releaseName {
+									if attemptUninstall(r.Namespace) {
+										return ctrl.Result{}, nil
+									}
+									break
+								}
+							}
+						}
+					}
+					// Fallback: iterate all namespaces and attempt uninstall
+					nsList := &corev1.NamespaceList{}
+					if err := cl.GetClient().List(ctx, nsList); err == nil {
+						for _, n := range nsList.Items {
+							if attemptUninstall(n.Name) {
+								break
+							}
+						}
+					}
 					return ctrl.Result{}, nil
 				}
 				log.Error(err, "get tenant failed")
 				return ctrl.Result{}, err
+			}
+			// Keep a copy of the original object for patch operations
+			original := tenant.DeepCopy()
+
+			// Check deletion guard immediately after fetch to prevent in-flight reconciles from upgrading
+			releaseName := fmt.Sprintf("tenant-%s-%s", tenant.Name, req.ClusterName)
+			if v, ok := deletingReleases.Load(releaseName); ok {
+				if b, ok2 := v.(bool); ok2 && b {
+					log.Info("deletion guard active after fetch; triggering uninstall", "release", releaseName)
+					wsName := tenant.Spec.Workspace
+					remoteCfg := cl.GetConfig()
+					getter := helmutil.NewRemoteRESTClientGetter(remoteCfg)
+					aCfg := new(action.Configuration)
+					if err := aCfg.Init(getter, wsName, os.Getenv("HELM_DRIVER"), func(format string, v ...any) { log.V(1).Info(fmt.Sprintf(format, v...)) }); err == nil {
+						un := action.NewUninstall(aCfg)
+						un.Timeout = 120 * time.Second
+						un.IgnoreNotFound = true
+						_, _ = un.Run(releaseName)
+					}
+					return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+				}
+			}
+
+			// Ensure cleanup finalizer exists so we receive DeletionTimestamp before object disappears
+			const cleanupFinalizer = "mesh.openkcm.io/cleanup"
+			if tenant.DeletionTimestamp == nil {
+				found := slices.Contains(tenant.Finalizers, cleanupFinalizer)
+				if !found {
+					log.Info("adding cleanup finalizer", "finalizer", cleanupFinalizer)
+					tenant.Finalizers = append(tenant.Finalizers, cleanupFinalizer)
+					if err := cl.GetClient().Patch(ctx, tenant, client.MergeFrom(original)); err != nil {
+						log.Error(err, "failed to add cleanup finalizer")
+						return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+					}
+					// refresh originals for subsequent patches
+					original = tenant.DeepCopy()
+					// Ensure finalizer is persisted before proceeding to any Helm actions
+					log.Info("cleanup finalizer added successfully; requeue to persist", "finalizer", cleanupFinalizer)
+					return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+				} else {
+					log.V(1).Info("cleanup finalizer already present", "finalizers", tenant.Finalizers)
+				}
+			} else {
+				log.Info("tenant has DeletionTimestamp; entering cleanup path", "deletionTimestamp", tenant.DeletionTimestamp)
 			}
 			log.V(1).Info("tenant fetched", "phase", tenant.Status.Phase, "workspace", tenant.Spec.Workspace)
 			// Helper to emit a minimal Event directly into the cluster where the Tenant lives.
@@ -201,6 +301,171 @@ func RunOperator() {
 				return ctrl.Result{}, nil
 			}
 			wsName := tenant.Spec.Workspace
+			// Short-circuit on deletion: uninstall Helm release and delete workspace namespace, then remove finalizer
+			if tenant.DeletionTimestamp != nil {
+				log.Info("tenant deletion detected; starting helm uninstall and workspace cleanup", "workspace", wsName)
+				delReleaseName := fmt.Sprintf("tenant-%s-%s", tenant.Name, req.ClusterName)
+				deletingReleases.Store(delReleaseName, true)
+				// Mark deletion progress via condition and annotation to avoid upgrades running
+				progressType := "ClusterProgress/" + req.ClusterName
+				upsertCond := func(cond metav1.Condition) {
+					found := false
+					for i := range tenant.Status.Conditions {
+						c := tenant.Status.Conditions[i]
+						if c.Type == cond.Type {
+							tenant.Status.Conditions[i] = cond
+							found = true
+							break
+						}
+					}
+					if !found {
+						tenant.Status.Conditions = append(tenant.Status.Conditions, cond)
+					}
+				}
+				upsertCond(metav1.Condition{Type: progressType, Status: metav1.ConditionTrue, Reason: "Deleting", Message: "tenant cleanup in progress", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+				if tenant.Annotations == nil {
+					tenant.Annotations = map[string]string{}
+				}
+				tenant.Annotations["mesh.openkcm.io/deleting"] = "true"
+				// Patch status and annotation immediately so deletion state is visible
+				if err := cl.GetClient().Status().Patch(ctx, tenant, client.MergeFrom(original)); err != nil && !apierrors.IsNotFound(err) {
+					log.V(1).Info("failed to patch status during deletion", "err", err)
+				}
+				if err := cl.GetClient().Patch(ctx, tenant, client.MergeFrom(original)); err != nil && !apierrors.IsNotFound(err) {
+					log.V(1).Info("failed to patch annotation during deletion", "err", err)
+				}
+				// Use delReleaseName throughout deletion block
+				remoteCfg := cl.GetConfig()
+				getter := helmutil.NewRemoteRESTClientGetter(remoteCfg)
+				aCfg := new(action.Configuration)
+				if err := aCfg.Init(getter, wsName, os.Getenv("HELM_DRIVER"), func(format string, v ...any) { log.V(1).Info(fmt.Sprintf(format, v...)) }); err != nil {
+					log.Error(err, "helm configuration init failed during deletion")
+				} else {
+					un := action.NewUninstall(aCfg)
+					un.Timeout = 120 * time.Second
+					un.IgnoreNotFound = true
+					if _, err := un.Run(delReleaseName); err != nil && !strings.Contains(strings.ToLower(err.Error()), "release: not found") {
+						log.Error(err, "helm uninstall failed", "release", delReleaseName, "ns", wsName)
+						// Fallback: try discover namespace and attempt uninstall across namespaces
+						lst := action.NewList(aCfg)
+						lst.All = true
+						discovered := ""
+						if rels, lErr := lst.Run(); lErr == nil {
+							for _, r := range rels {
+								if r.Name == delReleaseName {
+									discovered = r.Namespace
+									break
+								}
+							}
+						}
+						attempt := func(namespace string) bool {
+							cfg := new(action.Configuration)
+							if err3 := cfg.Init(getter, namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) { log.V(1).Info(fmt.Sprintf(format, v...)) }); err3 != nil {
+								return false
+							}
+							un2 := action.NewUninstall(cfg)
+							un2.Timeout = 120 * time.Second
+							un2.IgnoreNotFound = true
+							if _, e := un2.Run(delReleaseName); e != nil && !strings.Contains(strings.ToLower(e.Error()), "release: not found") {
+								log.V(1).Info("helm uninstall deletion-fallback failed", "ns", namespace, "err", e)
+								return false
+							}
+							log.Info("helm uninstall deletion-fallback success", "release", delReleaseName, "ns", namespace)
+							return true
+						}
+						if discovered != "" {
+							_ = attempt(discovered)
+						} else {
+							nsList := &corev1.NamespaceList{}
+							if errList := cl.GetClient().List(ctx, nsList); errList == nil {
+								for _, n := range nsList.Items {
+									if attempt(n.Name) {
+										break
+									}
+								}
+							}
+						}
+					} else {
+						log.Info("helm uninstall success", "release", delReleaseName, "ns", wsName)
+					}
+				}
+				// Delete cert-manager CRDs that were installed by the chart
+				crdNames := []string{
+					"certificaterequests.cert-manager.io",
+					"certificates.cert-manager.io",
+					"challenges.acme.cert-manager.io",
+					"clusterissuers.cert-manager.io",
+					"issuers.cert-manager.io",
+					"orders.acme.cert-manager.io",
+				}
+				for _, crdName := range crdNames {
+					crdObj := &metav1.PartialObjectMetadata{}
+					crdObj.SetGroupVersionKind(metav1.SchemeGroupVersion.WithKind("CustomResourceDefinition"))
+					crdObj.SetName(crdName)
+					if err := cl.GetClient().Delete(ctx, crdObj); err != nil {
+						if apierrors.IsNotFound(err) {
+							log.V(1).Info("CRD already deleted", "crd", crdName)
+						} else {
+							log.Info("failed to delete CRD (may not exist)", "crd", crdName, "err", err)
+						}
+					} else {
+						log.Info("CRD deleted", "crd", crdName)
+					}
+				}
+				// Delete workspace namespace from Tenant spec (skip protected namespaces like "default")
+				if strings.ToLower(wsName) != "default" && wsName != "" {
+					nsObj := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: wsName}}
+					if err := cl.GetClient().Delete(ctx, nsObj); err != nil {
+						if apierrors.IsNotFound(err) {
+							log.V(1).Info("workspace namespace already deleted", "workspace", wsName)
+						} else {
+							log.Error(err, "failed to delete workspace namespace", "workspace", wsName)
+							return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+						}
+					} else {
+						log.Info("workspace namespace delete requested", "workspace", wsName)
+						// Wait for namespace termination to complete (short poll)
+						deadline := time.Now().Add(90 * time.Second)
+						namespaceDeleted := false
+						for time.Now().Before(deadline) {
+							check := &corev1.Namespace{}
+							if err := cl.GetClient().Get(ctx, client.ObjectKey{Name: wsName}, check); err != nil {
+								if apierrors.IsNotFound(err) {
+									log.Info("workspace namespace deleted", "workspace", wsName)
+									namespaceDeleted = true
+									break
+								}
+								log.V(1).Info("namespace get during termination", "workspace", wsName, "err", err)
+							} else if check.DeletionTimestamp != nil {
+								log.V(1).Info("namespace terminating", "workspace", wsName, "finalizers", check.Spec.Finalizers)
+							}
+							time.Sleep(2 * time.Second)
+						}
+						if !namespaceDeleted {
+							log.Info("namespace still terminating, will requeue to wait", "workspace", wsName)
+							return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+						}
+					}
+				} else {
+					log.V(1).Info("skip deleting protected or empty workspace", "workspace", wsName)
+				}
+				// Remove finalizer to allow object deletion to complete
+				for i, f := range tenant.Finalizers {
+					if f == cleanupFinalizer {
+						tenantCopy := tenant.DeepCopy()
+						tenantCopy.Finalizers = append(append([]string{}, tenant.Finalizers[:i]...), tenant.Finalizers[i+1:]...)
+						if err := cl.GetClient().Patch(ctx, tenantCopy, client.MergeFrom(tenant)); err != nil && !apierrors.IsNotFound(err) {
+							log.Error(err, "failed to remove cleanup finalizer")
+							return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+						}
+						// Clear deletion guard to allow future tenant creation
+						deletingReleases.Delete(delReleaseName)
+						log.Info("cleanup finalizer removed and deletion guard cleared", "release", delReleaseName)
+						break
+					}
+				}
+				return ctrl.Result{}, nil
+			}
 			ns := &corev1.Namespace{}
 			if err := cl.GetClient().Get(ctx, client.ObjectKey{Name: wsName}, ns); err != nil {
 				if apierrors.IsNotFound(err) {
@@ -216,10 +481,25 @@ func RunOperator() {
 					return ctrl.Result{}, err
 				}
 			} else {
+				// If namespace is terminating, treat as deletion in progress: uninstall and exit
+				if ns.DeletionTimestamp != nil {
+					log.Info("workspace namespace terminating; triggering uninstall", "workspace", wsName)
+					releaseName := fmt.Sprintf("tenant-%s-%s", tenant.Name, req.ClusterName)
+					remoteCfg := cl.GetConfig()
+					getter := helmutil.NewRemoteRESTClientGetter(remoteCfg)
+					aCfg := new(action.Configuration)
+					if err := aCfg.Init(getter, wsName, os.Getenv("HELM_DRIVER"), func(format string, v ...any) { log.V(1).Info(fmt.Sprintf(format, v...)) }); err == nil {
+						un := action.NewUninstall(aCfg)
+						un.Timeout = 120 * time.Second
+						un.IgnoreNotFound = true
+						_, _ = un.Run(releaseName)
+					}
+					return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+				}
 				log.Info("workspace namespace exists", "workspace", wsName)
 				publishEvent(corev1.EventTypeNormal, "WorkspaceExists", wsName)
 			}
-			releaseName := fmt.Sprintf("tenant-%s-%s", tenant.Name, req.ClusterName)
+			// releaseName already declared at top of reconcile for deletion guard check
 			// Use central chart configuration instead of per-Tenant spec.
 			chartRefRepo := chartRepo
 			chartRefName := chartName
@@ -287,6 +567,27 @@ func RunOperator() {
 				// cert-manager chart expects 'installCRDs' to be true on initial bootstrap so API types exist before webhook/manager readiness checks.
 				values["installCRDs"] = true
 			}
+			// Double-check existence just before any Helm action using a non-cached client to avoid cache races
+			recheck := &platformv1alpha1.Tenant{}
+			apiClient, ncErr := client.New(cl.GetConfig(), client.Options{Scheme: cl.GetScheme()})
+			if ncErr == nil {
+				_ = apiClient.Get(ctx, req.NamespacedName, recheck)
+			}
+			if recheck.Name == "" { // treat as not found regardless of cache
+				log.Info("tenant disappeared before helm action; triggering uninstall")
+				un := action.NewUninstall(aCfg)
+				un.Timeout = 120 * time.Second
+				un.IgnoreNotFound = true
+				_, _ = un.Run(releaseName)
+				return ctrl.Result{}, nil
+			} else if recheck.DeletionTimestamp != nil {
+				log.Info("tenant marked for deletion; skipping helm upgrade/install and uninstalling")
+				un := action.NewUninstall(aCfg)
+				un.Timeout = 120 * time.Second
+				un.IgnoreNotFound = true
+				_, _ = un.Run(releaseName)
+				return ctrl.Result{}, nil
+			}
 			list := action.NewList(aCfg)
 			list.All = true
 			installed := false
@@ -321,6 +622,32 @@ func RunOperator() {
 			}
 			condReadyType := "ClusterReady/" + req.ClusterName
 			condErrorType := "ClusterError/" + req.ClusterName
+
+			// Pre-Helm-action guard: check deletion guard and fresh Tenant state before any Helm operations
+			if v, ok := deletingReleases.Load(releaseName); ok {
+				if b, ok2 := v.(bool); ok2 && b {
+					log.Info("deletion guard active before helm operations; triggering uninstall", "release", releaseName)
+					un := action.NewUninstall(aCfg)
+					un.Timeout = 120 * time.Second
+					un.IgnoreNotFound = true
+					_, _ = un.Run(releaseName)
+					return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+				}
+			}
+			// Also do a fresh fetch to catch any deletes that happened since the top-of-reconcile fetch
+			preActionCheck := &platformv1alpha1.Tenant{}
+			preActionClient, pacErr := client.New(cl.GetConfig(), client.Options{Scheme: cl.GetScheme()})
+			if pacErr == nil {
+				_ = preActionClient.Get(ctx, req.NamespacedName, preActionCheck)
+			}
+			if preActionCheck.Name == "" || preActionCheck.DeletionTimestamp != nil {
+				log.Info("tenant deleted before helm operations; triggering uninstall", "release", releaseName)
+				un := action.NewUninstall(aCfg)
+				un.Timeout = 120 * time.Second
+				un.IgnoreNotFound = true
+				_, _ = un.Run(releaseName)
+				return ctrl.Result{}, nil
+			}
 			if prevFP == fingerprint && installed {
 				log.Info("fingerprint unchanged; skipping helm upgrade", "release", releaseName)
 				publishEvent(corev1.EventTypeNormal, "HelmSkip", "fingerprint unchanged")
@@ -329,6 +656,17 @@ func RunOperator() {
 			// Progress condition type (declared before any goto targets to satisfy compiler).
 			progressType := "ClusterProgress/" + req.ClusterName
 			if !installed && loaded != nil {
+				// Final guard check immediately before install to catch any deletes that occurred during chart load
+				if v, ok := deletingReleases.Load(releaseName); ok {
+					if b, ok2 := v.(bool); ok2 && b {
+						log.Info("deletion guard active before install; skipping and uninstalling", "release", releaseName)
+						un := action.NewUninstall(aCfg)
+						un.Timeout = 120 * time.Second
+						un.IgnoreNotFound = true
+						_, _ = un.Run(releaseName)
+						return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+					}
+				}
 				publishEvent(corev1.EventTypeNormal, "HelmInstallStart", releaseName)
 				inst := action.NewInstall(aCfg)
 				inst.ReleaseName = releaseName
@@ -338,40 +676,129 @@ func RunOperator() {
 				inst.Timeout = 180 * time.Second
 				// Mark progress condition (True while running)
 				upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionTrue, Reason: "Installing", Message: "helm install in progress", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
-				if _, err := inst.Run(loaded, values); err != nil {
-					log.Error(err, "helm install failed")
-					publishEvent(corev1.EventTypeWarning, "HelmInstallFailed", err.Error())
-					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "InstallFailed", Message: err.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+				// Final recheck immediately before Run using direct non-cached client to catch concurrent deletes
+				finalCheck := &platformv1alpha1.Tenant{}
+				directClient, dcErr := client.New(cl.GetConfig(), client.Options{Scheme: cl.GetScheme()})
+				if dcErr == nil {
+					_ = directClient.Get(ctx, req.NamespacedName, finalCheck)
+				}
+				if finalCheck.Name == "" || finalCheck.DeletionTimestamp != nil {
+					log.Info("tenant deleted or disappeared before install run; aborting")
+					return ctrl.Result{}, nil
+				}
+				_, instErr := inst.Run(loaded, values)
+				// Post-operation check IMMEDIATELY after Run() returns: if tenant was deleted during install, uninstall and exit
+				postCheck := &platformv1alpha1.Tenant{}
+				postClient, pcErr := client.New(cl.GetConfig(), client.Options{Scheme: cl.GetScheme()})
+				var postGetErr error
+				if pcErr == nil {
+					postGetErr = postClient.Get(ctx, req.NamespacedName, postCheck)
+				}
+				if postGetErr != nil && apierrors.IsNotFound(postGetErr) {
+					log.Info("tenant not found after install (deleted during operation); uninstalling immediately", "release", releaseName)
+					un := action.NewUninstall(aCfg)
+					un.Timeout = 120 * time.Second
+					un.IgnoreNotFound = true
+					_, _ = un.Run(releaseName)
+					return ctrl.Result{}, nil
+				}
+				if postCheck.DeletionTimestamp != nil {
+					log.Info("tenant has DeletionTimestamp after install (deleted during operation); uninstalling immediately", "release", releaseName)
+					un := action.NewUninstall(aCfg)
+					un.Timeout = 120 * time.Second
+					un.IgnoreNotFound = true
+					_, _ = un.Run(releaseName)
+					return ctrl.Result{}, nil
+				}
+				// Now safe to process install result and update status
+				if instErr != nil {
+					log.Error(instErr, "helm install failed")
+					publishEvent(corev1.EventTypeWarning, "HelmInstallFailed", instErr.Error())
+					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "InstallFailed", Message: instErr.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 					upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "InstallFailed", Message: "helm install failed", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 					// install failed; conditions set
 				}
 				log.Info("helm install success", "release", releaseName)
 				publishEvent(corev1.EventTypeNormal, "HelmInstalled", releaseName)
 				tenant.Annotations[annoKey] = fingerprint
-				if err := cl.GetClient().Update(ctx, tenant); err != nil {
-					log.Error(err, "failed to update tenant annotation with fingerprint")
+				if err := cl.GetClient().Patch(ctx, tenant, client.MergeFrom(original)); err != nil {
+					if apierrors.IsNotFound(err) {
+						log.V(1).Info("tenant disappeared before annotation patch; ignoring")
+					} else {
+						log.Error(err, "failed to patch tenant annotation with fingerprint")
+					}
 				}
 				upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "InstallComplete", Message: "helm install complete", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 				upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "Installed", Message: "release installed", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 			} else if installed && loaded != nil {
+				// Final guard check immediately before upgrade to catch any deletes that occurred during chart load
+				if v, ok := deletingReleases.Load(releaseName); ok {
+					if b, ok2 := v.(bool); ok2 && b {
+						log.Info("deletion guard active before upgrade; skipping and uninstalling", "release", releaseName)
+						un := action.NewUninstall(aCfg)
+						un.Timeout = 120 * time.Second
+						un.IgnoreNotFound = true
+						_, _ = un.Run(releaseName)
+						return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+					}
+				}
 				publishEvent(corev1.EventTypeNormal, "HelmUpgradeStart", releaseName)
 				up := action.NewUpgrade(aCfg)
 				up.Namespace = wsName
 				up.Wait = true
 				up.Timeout = 180 * time.Second
 				upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionTrue, Reason: "Upgrading", Message: "helm upgrade in progress", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
-				if _, err := up.Run(releaseName, loaded, values); err != nil {
-					log.Error(err, "helm upgrade failed")
-					publishEvent(corev1.EventTypeWarning, "HelmUpgradeFailed", err.Error())
-					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "UpgradeFailed", Message: err.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
+				// Final recheck immediately before Run using direct non-cached client to catch concurrent deletes
+				finalCheck := &platformv1alpha1.Tenant{}
+				directClient, dcErr := client.New(cl.GetConfig(), client.Options{Scheme: cl.GetScheme()})
+				if dcErr == nil {
+					_ = directClient.Get(ctx, req.NamespacedName, finalCheck)
+				}
+				if finalCheck.Name == "" || finalCheck.DeletionTimestamp != nil {
+					log.Info("tenant deleted or disappeared before upgrade run; aborting")
+					return ctrl.Result{}, nil
+				}
+				_, upErr := up.Run(releaseName, loaded, values)
+				// Post-operation check IMMEDIATELY after Run() returns: if tenant was deleted during upgrade, uninstall and exit
+				postCheck := &platformv1alpha1.Tenant{}
+				postClient, pcErr := client.New(cl.GetConfig(), client.Options{Scheme: cl.GetScheme()})
+				var postGetErr error
+				if pcErr == nil {
+					postGetErr = postClient.Get(ctx, req.NamespacedName, postCheck)
+				}
+				if postGetErr != nil && apierrors.IsNotFound(postGetErr) {
+					log.Info("tenant not found after upgrade (deleted during operation); uninstalling immediately", "release", releaseName)
+					un := action.NewUninstall(aCfg)
+					un.Timeout = 120 * time.Second
+					un.IgnoreNotFound = true
+					_, _ = un.Run(releaseName)
+					return ctrl.Result{}, nil
+				}
+				if postCheck.DeletionTimestamp != nil {
+					log.Info("tenant has DeletionTimestamp after upgrade (deleted during operation); uninstalling immediately", "release", releaseName)
+					un := action.NewUninstall(aCfg)
+					un.Timeout = 120 * time.Second
+					un.IgnoreNotFound = true
+					_, _ = un.Run(releaseName)
+					return ctrl.Result{}, nil
+				}
+				// Now safe to process upgrade result and update status
+				if upErr != nil {
+					log.Error(upErr, "helm upgrade failed")
+					publishEvent(corev1.EventTypeWarning, "HelmUpgradeFailed", upErr.Error())
+					upsertCondition(metav1.Condition{Type: condErrorType, Status: metav1.ConditionTrue, Reason: "UpgradeFailed", Message: upErr.Error(), ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 					upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "UpgradeFailed", Message: "helm upgrade failed", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 					// upgrade failed; conditions set
 				}
 				log.Info("helm upgrade success", "release", releaseName)
 				publishEvent(corev1.EventTypeNormal, "HelmUpgraded", releaseName)
 				tenant.Annotations[annoKey] = fingerprint
-				if err := cl.GetClient().Update(ctx, tenant); err != nil {
-					log.Error(err, "failed to update tenant annotation with fingerprint")
+				if err := cl.GetClient().Patch(ctx, tenant, client.MergeFrom(original)); err != nil {
+					if apierrors.IsNotFound(err) {
+						log.V(1).Info("tenant disappeared before annotation patch; ignoring")
+					} else {
+						log.Error(err, "failed to patch tenant annotation with fingerprint")
+					}
 				}
 				upsertCondition(metav1.Condition{Type: progressType, Status: metav1.ConditionFalse, Reason: "UpgradeComplete", Message: "helm upgrade complete", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
 				upsertCondition(metav1.Condition{Type: condReadyType, Status: metav1.ConditionTrue, Reason: "Upgraded", Message: "release upgraded", ObservedGeneration: tenant.Generation, LastTransitionTime: metav1.Now()})
@@ -441,8 +868,11 @@ func RunOperator() {
 				for range 3 { // Go 1.25 int range loop
 					// Short timeout per attempt to avoid hanging entire reconcile.
 					uCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-					lastErr = cl.GetClient().Status().Update(uCtx, tenant)
+					lastErr = cl.GetClient().Status().Patch(uCtx, tenant, client.MergeFrom(original))
 					cancel()
+					if lastErr != nil && apierrors.IsNotFound(lastErr) {
+						return nil
+					}
 					if lastErr == nil {
 						return nil
 					}
