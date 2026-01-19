@@ -2,16 +2,18 @@ package multicluster
 
 import (
 	"context"
-	_ "embed" // required for go:embed directive
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	_ "embed" // required for go:embed directive
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // Embed the Tenant CRD manifest for on-demand apply to discovered clusters.

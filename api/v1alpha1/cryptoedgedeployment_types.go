@@ -1,8 +1,9 @@
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CryptoEdgeDeploymentPhase enumerates simple lifecycle states.
@@ -55,10 +56,10 @@ type CryptoEdgeDeploymentStatus struct {
 // The name of the CryptoEdgeDeployment is used as the namespace name in the target cluster.
 type CryptoEdgeDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   CryptoEdgeDeploymentSpec   `json:"spec,omitempty"`
-	Status CryptoEdgeDeploymentStatus `json:"status,omitempty"`
+	Spec   CryptoEdgeDeploymentSpec   `json:"spec"`
+	Status CryptoEdgeDeploymentStatus `json:"status"`
 }
 
 // +kubebuilder:object:root=true
@@ -66,7 +67,7 @@ type CryptoEdgeDeployment struct {
 // CryptoEdgeDeploymentList contains a list of CryptoEdgeDeployment.
 type CryptoEdgeDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []CryptoEdgeDeployment `json:"items"`
 }

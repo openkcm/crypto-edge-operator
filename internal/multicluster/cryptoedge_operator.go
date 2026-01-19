@@ -8,33 +8,32 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/go-logr/logr"
-	// other third-party
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
-	// k8s.io and sigs.k8s.io group
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metautil "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	mcmanager "sigs.k8s.io/multicluster-runtime/pkg/manager"
 	kubeconfigprovider "sigs.k8s.io/multicluster-runtime/providers/kubeconfig"
 
-	// local module
 	platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
 	helmutil "github.com/openkcm/crypto-edge-operator/internal/helmutil"
 )
@@ -240,13 +239,7 @@ func reconcileCED(
 		return rcedHandleDelete(ctx, log, homeMgr, mgr, namespace, recorder, deployment)
 	}
 
-	foundFinalizer := false
-	for _, f := range deployment.GetFinalizers() {
-		if f == finalizerName {
-			foundFinalizer = true
-			break
-		}
-	}
+	foundFinalizer := slices.Contains(deployment.GetFinalizers(), finalizerName)
 	if !foundFinalizer {
 		deployment.SetFinalizers(append(deployment.GetFinalizers(), finalizerName))
 		if err := homeMgr.GetClient().Update(ctx, deployment); err != nil {
@@ -419,7 +412,7 @@ func deployHelmChart(ctx context.Context, log logr.Logger, edgeCluster cluster.C
 
 	// Initialize Helm action config
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(getter, namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...interface{}) {
+	if err := actionConfig.Init(getter, namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
 		log.V(1).Info(fmt.Sprintf(format, v...))
 	}); err != nil {
 		return fmt.Errorf("helm init failed: %w", err)
@@ -464,7 +457,7 @@ func deployHelmChart(ctx context.Context, log logr.Logger, edgeCluster cluster.C
 	histClient.Max = 1
 	_, err = histClient.Run(releaseName)
 
-	values := map[string]interface{}{
+	values := map[string]any{
 		"replicaCount": 1,
 	}
 
@@ -505,7 +498,7 @@ func uninstallHelmChart(ctx context.Context, log logr.Logger, edgeCluster cluste
 
 	// Initialize Helm action config
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(getter, namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...interface{}) {
+	if err := actionConfig.Init(getter, namespace, os.Getenv("HELM_DRIVER"), func(format string, v ...any) {
 		log.V(1).Info(fmt.Sprintf(format, v...))
 	}); err != nil {
 		return fmt.Errorf("helm init failed: %w", err)

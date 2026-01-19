@@ -1,8 +1,9 @@
 package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // AccountSpec defines the desired state of an Account.
@@ -29,10 +30,10 @@ type AccountStatus struct {
 // An Account can own multiple CryptoEdgeDeployments.
 type Account struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   AccountSpec   `json:"spec,omitempty"`
-	Status AccountStatus `json:"status,omitempty"`
+	Spec   AccountSpec   `json:"spec"`
+	Status AccountStatus `json:"status"`
 }
 
 // +kubebuilder:object:root=true
@@ -40,7 +41,7 @@ type Account struct {
 // AccountList contains a list of Account.
 type AccountList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []Account `json:"items"`
 }
