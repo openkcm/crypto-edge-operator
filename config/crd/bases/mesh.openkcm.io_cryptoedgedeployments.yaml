@@ -52,6 +52,14 @@ spec:
                 required:
                 - name
                 type: object
+              regionRef:
+                description: RegionRef references a Region resource by name.
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
               targetRegion:
                 description: |-
                   TargetRegion specifies the target edge cluster (e.g., edge01, edge02, etc.).

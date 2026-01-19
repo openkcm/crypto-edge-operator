@@ -211,16 +211,20 @@ func RunCryptoEdgeOperator() {
 			if !deployment.ObjectMeta.DeletionTimestamp.IsZero() {
 				// Resolve Region and kubeconfig Secret name
 				targetSecretName := ""
+				regionName := deployment.Spec.TargetRegion
+				if deployment.Spec.RegionRef != nil && deployment.Spec.RegionRef.Name != "" {
+					regionName = deployment.Spec.RegionRef.Name
+				}
 				region := &platformv1alpha1.Region{}
-				if err := homeMgr.GetClient().Get(ctx, client.ObjectKey{Name: deployment.Spec.TargetRegion, Namespace: namespace}, region); err == nil {
+				if err := homeMgr.GetClient().Get(ctx, client.ObjectKey{Name: regionName, Namespace: namespace}, region); err == nil {
 					if region.Spec.KubeconfigSecretName != "" {
 						targetSecretName = region.Spec.KubeconfigSecretName
 					}
 				}
 				if targetSecretName == "" {
-					targetSecretName = fmt.Sprintf("%s-kubeconfig", deployment.Spec.TargetRegion)
+					targetSecretName = fmt.Sprintf("%s-kubeconfig", regionName)
 				}
-				log.Info("deletion: routing to edge cluster", "targetRegion", deployment.Spec.TargetRegion, "targetSecret", targetSecretName)
+				log.Info("deletion: routing to edge cluster", "targetRegion", regionName, "targetSecret", targetSecretName)
 				recorder.Event(deployment, corev1.EventTypeNormal, "DeleteStarted", fmt.Sprintf("Routing delete to region %s", deployment.Spec.TargetRegion))
 
 				edgeCluster, err := mgr.GetCluster(ctx, targetSecretName)
@@ -286,16 +290,20 @@ func RunCryptoEdgeOperator() {
 
 			// Resolve Region and kubeconfig Secret name (default: <region>-kubeconfig)
 			targetSecretName := ""
+			regionName := deployment.Spec.TargetRegion
+			if deployment.Spec.RegionRef != nil && deployment.Spec.RegionRef.Name != "" {
+				regionName = deployment.Spec.RegionRef.Name
+			}
 			region := &platformv1alpha1.Region{}
-			if err := homeMgr.GetClient().Get(ctx, client.ObjectKey{Name: deployment.Spec.TargetRegion, Namespace: namespace}, region); err == nil {
+			if err := homeMgr.GetClient().Get(ctx, client.ObjectKey{Name: regionName, Namespace: namespace}, region); err == nil {
 				if region.Spec.KubeconfigSecretName != "" {
 					targetSecretName = region.Spec.KubeconfigSecretName
 				}
 			}
 			if targetSecretName == "" {
-				targetSecretName = fmt.Sprintf("%s-kubeconfig", deployment.Spec.TargetRegion)
+				targetSecretName = fmt.Sprintf("%s-kubeconfig", regionName)
 			}
-			log.Info("routing to edge cluster", "targetRegion", deployment.Spec.TargetRegion, "targetSecret", targetSecretName)
+			log.Info("routing to edge cluster", "targetRegion", regionName, "targetSecret", targetSecretName)
 			recorder.Event(deployment, corev1.EventTypeNormal, "Routing", fmt.Sprintf("Routing to region %s", deployment.Spec.TargetRegion))
 
 			// Get target edge cluster from multicluster manager

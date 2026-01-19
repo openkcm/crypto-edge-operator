@@ -25,9 +25,19 @@ type CryptoEdgeDeploymentSpec struct {
 	// AccountRef is a required reference to the Account that owns this deployment.
 	AccountRef AccountRef `json:"accountRef" yaml:"accountRef"`
 
+	// RegionRef references a Region resource (in the operator namespace) that
+	// defines the kubeconfig secret for the target cluster.
+	// If omitted, TargetRegion is used as a simple region name.
+	RegionRef *RegionRef `json:"regionRef,omitempty" yaml:"regionRef,omitempty"`
+
 	// TargetRegion specifies the target edge cluster (e.g., edge01, edge02, etc.).
 	// The deployment will be rolled out to this cluster.
 	TargetRegion string `json:"targetRegion" yaml:"targetRegion"`
+}
+
+// RegionRef references a Region by name.
+type RegionRef struct {
+	Name string `json:"name" yaml:"name"`
 }
 
 // CryptoEdgeDeploymentStatus captures observed state.

@@ -18,6 +18,7 @@ OP_NS=crypto-edge-operator
 TENANT_NS=default
 TENANT_NAME_EDGE01=e2e-full-echo-edge01
 TENANT_NAME_EDGE02=e2e-full-echo-edge02
+TENANT_SUFFIXES=(a b c)
 CERTM_REPO=https://ealenn.github.io/charts
 CERTM_NAME=echo-server
 CERTM_VERSION=0.5.0
@@ -136,6 +137,7 @@ helm --kubeconfig /tmp/home-kind.kubeconfig upgrade -i "$OP_RELEASE_NAME" "$OP_C
   --set image.pullPolicy=IfNotPresent \
   --set installMode.crdsRbacOnly=false \
   --set autoscaling.enabled=false \
+  --skip-crds \
   --wait --timeout 300s
 
 log "create remote kubeconfig secrets in home cluster (using internal kubeconfigs)"
@@ -193,32 +195,44 @@ spec:
   owner: "dev-team"
 EOF
 
-log "apply CryptoEdgeDeployment resources to home cluster"
-# Edge01 Deployment
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
+log "apply 3 CryptoEdgeDeployments per region to home cluster"
+# Create three deployments for edge01 and edge02
+TENANT_NAMES_EDGE01=()
+TENANT_NAMES_EDGE02=()
+for s in ${TENANT_SUFFIXES[@]}; do
+  NAME_EDGE01="${TENANT_NAME_EDGE01}-${s}"
+  NAME_EDGE02="${TENANT_NAME_EDGE02}-${s}"
+  TENANT_NAMES_EDGE01+=("$NAME_EDGE01")
+  TENANT_NAMES_EDGE02+=("$NAME_EDGE02")
+  # Edge01
+  kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
 apiVersion: mesh.openkcm.io/v1alpha1
 kind: CryptoEdgeDeployment
 metadata:
-  name: ${TENANT_NAME_EDGE01}
+  name: ${NAME_EDGE01}
   namespace: ${TENANT_NS}
 spec:
   accountRef:
     name: dev-account
+  regionRef:
+    name: edge01
   targetRegion: edge01
 EOF
-
-# Edge02 Deployment
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
+  # Edge02
+  kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
 apiVersion: mesh.openkcm.io/v1alpha1
 kind: CryptoEdgeDeployment
 metadata:
-  name: ${TENANT_NAME_EDGE02}
+  name: ${NAME_EDGE02}
   namespace: ${TENANT_NS}
 spec:
   accountRef:
     name: dev-account
+  regionRef:
+    name: edge02
   targetRegion: edge02
 EOF
+done
 
 log "create Region CRs to define kubeconfig secrets"
 kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$OP_NS" -f - <<EOF
@@ -239,44 +253,60 @@ spec:
   kubeconfigSecretName: kubeconfig-edge02
 EOF
 
-log "wait for CryptoEdgeDeployments Ready on home cluster (timeout 10m each)"
+log "wait for all CryptoEdgeDeployments Ready on home cluster (timeout 10m each)"
 # Edge01
-for i in {1..200}; do
-  PHASE=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE01" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-  [ "$PHASE" = "Ready" ] && break
-  sleep 3
-  [ $i -eq 200 ] && { log "edge01 deployment not Ready"; kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE01" -n "$TENANT_NS" -o yaml; exit 1; }
+for name in ${TENANT_NAMES_EDGE01[@]}; do
+  for i in {1..200}; do
+    PHASE=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    [ "$PHASE" = "Ready" ] && break
+    sleep 3
+    [ $i -eq 200 ] && { log "edge01 deployment $name not Ready"; kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml; exit 1; }
+  done
+  log "edge01 deployment $name Ready"
 done
-log "edge01 deployment Ready"
 
 # Edge02
-for i in {1..200}; do
-  PHASE=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE02" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-  [ "$PHASE" = "Ready" ] && break
-  sleep 3
-  [ $i -eq 200 ] && { log "edge02 deployment not Ready"; kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE02" -n "$TENANT_NS" -o yaml; exit 1; }
+for name in ${TENANT_NAMES_EDGE02[@]}; do
+  for i in {1..200}; do
+    PHASE=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    [ "$PHASE" = "Ready" ] && break
+    sleep 3
+    [ $i -eq 200 ] && { log "edge02 deployment $name not Ready"; kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml; exit 1; }
+  done
+  log "edge02 deployment $name Ready"
 done
-log "edge02 deployment Ready"
 
-log "delete CryptoEdgeDeployments on home cluster"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig delete cryptoedgedeployment "$TENANT_NAME_EDGE01" -n "$TENANT_NS"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig delete cryptoedgedeployment "$TENANT_NAME_EDGE02" -n "$TENANT_NS"
+log "delete all CryptoEdgeDeployments on home cluster"
+for name in ${TENANT_NAMES_EDGE01[@]}; do
+  kubectl --kubeconfig /tmp/home-kind.kubeconfig delete cryptoedgedeployment "$name" -n "$TENANT_NS"
+done
+for name in ${TENANT_NAMES_EDGE02[@]}; do
+  kubectl --kubeconfig /tmp/home-kind.kubeconfig delete cryptoedgedeployment "$name" -n "$TENANT_NS"
+done
 
 log "wait for namespace deletion on edge clusters"
-# Edge01
+# Edge01: wait until all namespaces gone
 for i in {1..120}; do
-  kubectl --kubeconfig /tmp/edge01-kind.kubeconfig get ns "$TENANT_NAME_EDGE01" >/dev/null 2>&1 || break
+  remaining=0
+  for name in ${TENANT_NAMES_EDGE01[@]}; do
+    kubectl --kubeconfig /tmp/edge01-kind.kubeconfig get ns "$name" >/dev/null 2>&1 && remaining=$((remaining+1))
+  done
+  [ $remaining -eq 0 ] && break
   sleep 2
-  [ $i -eq 120 ] && { log "edge01 namespace not deleted"; exit 1; }
+  [ $i -eq 120 ] && { log "edge01 namespaces not deleted"; exit 1; }
 done
-log "edge01 tenant namespace deleted"
+log "edge01 tenant namespaces deleted"
 
-# Edge02
+# Edge02: wait until all namespaces gone
 for i in {1..120}; do
-  kubectl --kubeconfig /tmp/edge02-kind.kubeconfig get ns "$TENANT_NAME_EDGE02" >/dev/null 2>&1 || break
+  remaining=0
+  for name in ${TENANT_NAMES_EDGE02[@]}; do
+    kubectl --kubeconfig /tmp/edge02-kind.kubeconfig get ns "$name" >/dev/null 2>&1 && remaining=$((remaining+1))
+  done
+  [ $remaining -eq 0 ] && break
   sleep 2
-  [ $i -eq 120 ] && { log "edge02 namespace not deleted"; exit 1; }
+  [ $i -eq 120 ] && { log "edge02 namespaces not deleted"; exit 1; }
 done
-log "edge02 tenant namespace deleted"
+log "edge02 tenant namespaces deleted"
 
 log "e2e-full passed"

@@ -100,6 +100,10 @@ func (in *AccountRef) DeepCopy() *AccountRef {
 func (in *CryptoEdgeDeploymentSpec) DeepCopyInto(out *CryptoEdgeDeploymentSpec) {
 	*out = *in
 	out.AccountRef = in.AccountRef
+	if in.RegionRef != nil {
+		out.RegionRef = new(RegionRef)
+		in.RegionRef.DeepCopyInto(out.RegionRef)
+	}
 }
 
 // DeepCopy creates a new deep-copied CryptoEdgeDeploymentSpec.
@@ -129,6 +133,21 @@ func (in *CryptoEdgeDeploymentStatus) DeepCopy() *CryptoEdgeDeploymentStatus {
 		return nil
 	}
 	out := new(CryptoEdgeDeploymentStatus)
+	in.DeepCopyInto(out)
+	return out
+}
+
+// DeepCopyInto copies the receiver into out. in must be non-nil.
+func (in *RegionRef) DeepCopyInto(out *RegionRef) {
+	*out = *in
+}
+
+// DeepCopy creates a new deep-copied RegionRef.
+func (in *RegionRef) DeepCopy() *RegionRef {
+	if in == nil {
+		return nil
+	}
+	out := new(RegionRef)
 	in.DeepCopyInto(out)
 	return out
 }
