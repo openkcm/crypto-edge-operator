@@ -7,7 +7,6 @@ spec:
   clusterRef:
     secretName: remote-cluster-kubeconfig
     secretNamespace: cryptoedge-operator
-  workspace: cert-manager-workspace
   chart:
     repo: https://charts.jetstack.io
     name: cert-manager

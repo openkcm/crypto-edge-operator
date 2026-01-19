@@ -25,7 +25,6 @@ type ClusterRef struct {
 type TenantSpec struct {
 	// ClusterRef optionally targets a specific discovered cluster; if omitted the Tenant applies to the cluster it resides on.
 	ClusterRef *ClusterRef `json:"clusterRef,omitempty" yaml:"clusterRef,omitempty"`
-	Workspace  string      `json:"workspace" yaml:"workspace"`
 }
 
 // TenantStatus captures observed state.

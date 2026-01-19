@@ -4,22 +4,23 @@ set -euo pipefail
 # set -x
 
 # Full e2e: build local Docker image, run operator in-cluster,
-# load cert-manager images into kind, install via Helm through Tenant flow,
+# load echo-server images into kind, install via Helm through Tenant flow,
 # then delete Tenant and verify cleanup.
 
 CLEANED_UP=0
 
 HOME_CLUSTER=home
-REMOTE_CLUSTER=remote
+EDGE_01_CLUSTER=edge01
+EDGE_02_CLUSTER=edge02
 # Operator namespace (where the chart is installed)
 OP_NS=crypto-edge-operator
 # Tenant namespace (where Tenant CRs live)
 TENANT_NS=default
-TENANT_NAME=e2e-full-acme
-WORKSPACE_NS=e2e-full-acme-workspace
-CERTM_REPO=https://charts.jetstack.io
-CERTM_NAME=cert-manager
-CERTM_VERSION=1.19.1
+TENANT_NAME_EDGE01=e2e-full-echo-edge01
+TENANT_NAME_EDGE02=e2e-full-echo-edge02
+CERTM_REPO=https://ealenn.github.io/charts
+CERTM_NAME=echo-server
+CERTM_VERSION=0.5.0
 
 OP_IMAGE=crypto-edge-operator:dev
 OP_CHART_PATH=charts/crypto-edge-operator
@@ -37,10 +38,12 @@ cleanup() {
   # Delete with timeout when available to avoid hanging
   if command -v timeout >/dev/null 2>&1; then
     timeout 60 kind delete cluster --name "$HOME_CLUSTER" 2>/dev/null || true
-    timeout 60 kind delete cluster --name "$REMOTE_CLUSTER" 2>/dev/null || true
+    timeout 60 kind delete cluster --name "$EDGE_01_CLUSTER" 2>/dev/null || true
+    timeout 60 kind delete cluster --name "$EDGE_02_CLUSTER" 2>/dev/null || true
   else
     kind delete cluster --name "$HOME_CLUSTER" 2>/dev/null || true
-    kind delete cluster --name "$REMOTE_CLUSTER" 2>/dev/null || true
+    kind delete cluster --name "$EDGE_01_CLUSTER" 2>/dev/null || true
+    kind delete cluster --name "$EDGE_02_CLUSTER" 2>/dev/null || true
   fi
 }
 # On Ctrl-C/TERM, run cleanup then exit immediately
@@ -58,16 +61,24 @@ log "creating home cluster: $HOME_CLUSTER"
 kind create cluster --name "$HOME_CLUSTER" || { log "failed to create home cluster"; kind get clusters || true; exit 1; }
 log "home cluster created"
 sleep 3
-log "creating remote cluster: $REMOTE_CLUSTER"
-kind create cluster --name "$REMOTE_CLUSTER" || { log "failed to create remote cluster"; kind get clusters || true; exit 1; }
-log "remote cluster created"
+
+log "creating edge01 cluster: $EDGE_01_CLUSTER"
+kind create cluster --name "$EDGE_01_CLUSTER" || { log "failed to create edge01 cluster"; kind get clusters || true; exit 1; }
+log "edge01 cluster created"
+sleep 3
+
+log "creating edge02 cluster: $EDGE_02_CLUSTER"
+kind create cluster --name "$EDGE_02_CLUSTER" || { log "failed to create edge02 cluster"; kind get clusters || true; exit 1; }
+log "edge02 cluster created"
 log "current kind clusters:"; kind get clusters || true
 
 log "extract kubeconfigs (external for host, internal for pods)"
 kind get kubeconfig --name "$HOME_CLUSTER" > /tmp/home-kind.kubeconfig
-kind get kubeconfig --name "$REMOTE_CLUSTER" > /tmp/remote-kind.kubeconfig
-# Internal kubeconfig uses cluster-internal IP/hostname so pods can reach the API
-kind get kubeconfig --name "$REMOTE_CLUSTER" --internal > /tmp/remote-kind.internal.kubeconfig
+kind get kubeconfig --name "$EDGE_01_CLUSTER" > /tmp/edge01-kind.kubeconfig
+kind get kubeconfig --name "$EDGE_02_CLUSTER" > /tmp/edge02-kind.kubeconfig
+# Internal kubeconfigs use cluster-internal IP/hostname so pods can reach the API
+kind get kubeconfig --name "$EDGE_01_CLUSTER" --internal > /tmp/edge01-kind.internal.kubeconfig
+kind get kubeconfig --name "$EDGE_02_CLUSTER" --internal > /tmp/edge02-kind.internal.kubeconfig
 
 log "wait for home cluster API health"
 for i in {1..30}; do
@@ -77,22 +88,33 @@ for i in {1..30}; do
 done
 log "home cluster API ready"
 
-log "wait for remote cluster API health"
+log "wait for edge01 cluster API health"
 for i in {1..30}; do
-  kubectl --kubeconfig /tmp/remote-kind.kubeconfig get --raw=/healthz >/dev/null 2>&1 && break
+  kubectl --kubeconfig /tmp/edge01-kind.kubeconfig get --raw=/healthz >/dev/null 2>&1 && break
   sleep 2
-  [ $i -eq 30 ] && { log "remote cluster API not ready"; exit 1; }
+  [ $i -eq 30 ] && { log "edge01 cluster API not ready"; exit 1; }
 done
-log "remote cluster API ready"
+log "edge01 cluster API ready"
+
+log "wait for edge02 cluster API health"
+for i in {1..30}; do
+  kubectl --kubeconfig /tmp/edge02-kind.kubeconfig get --raw=/healthz >/dev/null 2>&1 && break
+  sleep 2
+  [ $i -eq 30 ] && { log "edge02 cluster API not ready"; exit 1; }
+done
+log "edge02 cluster API ready"
 
 log "kube contexts available:"
 kubectl config get-contexts || true
 
 # kubeconfigs already extracted above
 
-log "install Tenant CRD in both clusters (redundant if chart installs CRDs)"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -f config/crd/bases/mesh.openkcm.io_tenants.yaml
-kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f config/crd/bases/mesh.openkcm.io_tenants.yaml
+log "install CRDs (Account, CryptoEdgeDeployment) in home cluster"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -f config/crd/bases/
+
+log "install CRDs (Account, CryptoEdgeDeployment, Region) in edge clusters"
+kubectl --kubeconfig /tmp/edge01-kind.kubeconfig apply -f config/crd/bases/
+kubectl --kubeconfig /tmp/edge02-kind.kubeconfig apply -f config/crd/bases/
 
 log "build operator Docker image"
 docker build -t "$OP_IMAGE" .
@@ -116,11 +138,19 @@ helm --kubeconfig /tmp/home-kind.kubeconfig upgrade -i "$OP_RELEASE_NAME" "$OP_C
   --set autoscaling.enabled=false \
   --wait --timeout 300s
 
-log "create remote kubeconfig secret in home cluster (using internal kubeconfig)"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" create secret generic remote-1 \
-  --from-file=kubeconfig=/tmp/remote-kind.internal.kubeconfig --dry-run=client -o yaml \
+log "create remote kubeconfig secrets in home cluster (using internal kubeconfigs)"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" create secret generic kubeconfig-edge01 \
+  --from-file=kubeconfig=/tmp/edge01-kind.internal.kubeconfig --dry-run=client -o yaml \
   | yq e '.metadata.labels."sigs.k8s.io/multicluster-runtime-kubeconfig"="true"' - \
   | kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -f -
+
+kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" create secret generic kubeconfig-edge02 \
+  --from-file=kubeconfig=/tmp/edge02-kind.internal.kubeconfig --dry-run=client -o yaml \
+  | yq e '.metadata.labels."sigs.k8s.io/multicluster-runtime-kubeconfig"="true"' - \
+  | kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -f -
+
+log "verify kubeconfig secrets created"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get secrets -l sigs.k8s.io/multicluster-runtime-kubeconfig=true -o wide
 
 log "determine operator deployment name"
 DEP_NAME="$OP_RELEASE_NAME"
@@ -151,53 +181,102 @@ if ! kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" rollout status d
 fi
 log "operator ready"
 
-log "apply tenant resource to remote and home"
-kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Tenant
-metadata:
-  name: ${TENANT_NAME}
-  namespace: ${TENANT_NS}
-spec:
-  workspace: ${WORKSPACE_NS}
-EOF
+log "create Account on home cluster"
 kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
 apiVersion: mesh.openkcm.io/v1alpha1
-kind: Tenant
+kind: Account
 metadata:
-  name: ${TENANT_NAME}
+  name: dev-account
   namespace: ${TENANT_NS}
 spec:
-  workspace: ${WORKSPACE_NS}
+  displayName: "Development Account"
+  owner: "dev-team"
 EOF
 
-log "wait for workspace namespace on remote"
-for i in {1..60}; do
-  kubectl --kubeconfig /tmp/remote-kind.kubeconfig get ns "$WORKSPACE_NS" >/dev/null 2>&1 && break
-  sleep 2
-  [ $i -eq 60 ] && { log "namespace not created"; exit 1; }
-done
-log "namespace present"
+log "apply CryptoEdgeDeployment resources to home cluster"
+# Edge01 Deployment
+kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: CryptoEdgeDeployment
+metadata:
+  name: ${TENANT_NAME_EDGE01}
+  namespace: ${TENANT_NS}
+spec:
+  accountRef:
+    name: dev-account
+  targetRegion: edge01
+EOF
 
-log "wait for tenant Ready on remote"
+# Edge02 Deployment
+kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: CryptoEdgeDeployment
+metadata:
+  name: ${TENANT_NAME_EDGE02}
+  namespace: ${TENANT_NS}
+spec:
+  accountRef:
+    name: dev-account
+  targetRegion: edge02
+EOF
+
+log "create Region CRs to define kubeconfig secrets"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$OP_NS" -f - <<EOF
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Region
+metadata:
+  name: edge01
+  namespace: ${OP_NS}
+spec:
+  kubeconfigSecretName: kubeconfig-edge01
+---
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Region
+metadata:
+  name: edge02
+  namespace: ${OP_NS}
+spec:
+  kubeconfigSecretName: kubeconfig-edge02
+EOF
+
+log "wait for CryptoEdgeDeployments Ready on home cluster (timeout 10m each)"
+# Edge01
 for i in {1..200}; do
-  PHASE=$(kubectl --kubeconfig /tmp/remote-kind.kubeconfig get tenant "$TENANT_NAME" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  PHASE=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE01" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
   [ "$PHASE" = "Ready" ] && break
   sleep 3
-  [ $i -eq 200 ] && { log "tenant not Ready"; kubectl --kubeconfig /tmp/remote-kind.kubeconfig get tenant "$TENANT_NAME" -n "$TENANT_NS" -o yaml; exit 1; }
+  [ $i -eq 200 ] && { log "edge01 deployment not Ready"; kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE01" -n "$TENANT_NS" -o yaml; exit 1; }
 done
-log "tenant Ready"
+log "edge01 deployment Ready"
 
-log "delete tenant on remote and home"
-kubectl --kubeconfig /tmp/remote-kind.kubeconfig delete tenant "$TENANT_NAME" -n "$TENANT_NS"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig delete tenant "$TENANT_NAME" -n "$TENANT_NS"
+# Edge02
+for i in {1..200}; do
+  PHASE=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE02" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  [ "$PHASE" = "Ready" ] && break
+  sleep 3
+  [ $i -eq 200 ] && { log "edge02 deployment not Ready"; kubectl --kubeconfig /tmp/home-kind.kubeconfig get cryptoedgedeployment "$TENANT_NAME_EDGE02" -n "$TENANT_NS" -o yaml; exit 1; }
+done
+log "edge02 deployment Ready"
 
-log "wait for namespace deletion on remote"
+log "delete CryptoEdgeDeployments on home cluster"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig delete cryptoedgedeployment "$TENANT_NAME_EDGE01" -n "$TENANT_NS"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig delete cryptoedgedeployment "$TENANT_NAME_EDGE02" -n "$TENANT_NS"
+
+log "wait for namespace deletion on edge clusters"
+# Edge01
 for i in {1..120}; do
-  kubectl --kubeconfig /tmp/remote-kind.kubeconfig get ns "$WORKSPACE_NS" >/dev/null 2>&1 || break
+  kubectl --kubeconfig /tmp/edge01-kind.kubeconfig get ns "$TENANT_NAME_EDGE01" >/dev/null 2>&1 || break
   sleep 2
-  [ $i -eq 120 ] && { log "namespace not deleted"; exit 1; }
+  [ $i -eq 120 ] && { log "edge01 namespace not deleted"; exit 1; }
 done
-log "workspace namespace deleted"
+log "edge01 tenant namespace deleted"
+
+# Edge02
+for i in {1..120}; do
+  kubectl --kubeconfig /tmp/edge02-kind.kubeconfig get ns "$TENANT_NAME_EDGE02" >/dev/null 2>&1 || break
+  sleep 2
+  [ $i -eq 120 ] && { log "edge02 namespace not deleted"; exit 1; }
+done
+log "edge02 tenant namespace deleted"
 
 log "e2e-full passed"

@@ -4,22 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.3
-  name: tenants.mesh.openkcm.io
+  name: cryptoedgedeployments.mesh.openkcm.io
 spec:
   group: mesh.openkcm.io
   names:
-    kind: Tenant
-    listKind: TenantList
-    plural: tenants
+    kind: CryptoEdgeDeployment
+    listKind: CryptoEdgeDeploymentList
+    plural: cryptoedgedeployments
     shortNames:
-    - tenant
-    singular: tenant
+    - ced
+    singular: cryptoedgedeployment
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Tenant is the Schema for the tenants API.
+        description: |-
+          CryptoEdgeDeployment is the Schema for the cryptoedgedeployments API.
+          The name of the CryptoEdgeDeployment is used as the namespace name in the target cluster.
         properties:
           apiVersion:
             description: |-
@@ -39,20 +41,28 @@ spec:
           metadata:
             type: object
           spec:
-            description: TenantSpec defines desired state.
+            description: CryptoEdgeDeploymentSpec defines the desired state.
             properties:
-              clusterRef:
-                description: ClusterRef optionally targets a specific discovered cluster;
-                  if omitted the Tenant applies to the cluster it resides on.
+              accountRef:
+                description: AccountRef is a required reference to the Account that
+                  owns this deployment.
                 properties:
-                  secretName:
+                  name:
                     type: string
-                  secretNamespace:
-                    type: string
+                required:
+                - name
                 type: object
+              targetRegion:
+                description: |-
+                  TargetRegion specifies the target edge cluster (e.g., edge01, edge02, etc.).
+                  The deployment will be rolled out to this cluster.
+                type: string
+            required:
+            - accountRef
+            - targetRegion
             type: object
           status:
-            description: TenantStatus captures observed state.
+            description: CryptoEdgeDeploymentStatus captures observed state.
             properties:
               conditions:
                 items:
@@ -115,7 +125,8 @@ spec:
               lastMessage:
                 type: string
               phase:
-                description: TenantPhase enumerates simple lifecycle states.
+                description: CryptoEdgeDeploymentPhase enumerates simple lifecycle
+                  states.
                 type: string
             type: object
         type: object

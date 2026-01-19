@@ -136,32 +136,32 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	logger.Info("remote connectivity (fallback list) OK", "namespaceSampleCount", len(nsList.Items), "apiServer", remoteHost)
 
-	// Ensure workspace namespace exists on remote cluster.
-	workspaceNS := &corev1.Namespace{}
-	if err := remoteClient.Get(ctx, types.NamespacedName{Name: tenant.Spec.Workspace}, workspaceNS); err != nil {
+	// Ensure tenant namespace exists on remote cluster (use tenant name as namespace).
+	tenantNamespace := &corev1.Namespace{}
+	if err := remoteClient.Get(ctx, types.NamespacedName{Name: tenant.Name}, tenantNamespace); err != nil {
 		if kerrors.IsNotFound(err) {
-			create := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: tenant.Spec.Workspace}}
+			create := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: tenant.Name}}
 			if err2 := remoteClient.Create(ctx, create); err2 != nil {
-				logger.Error(err2, "failed to create workspace namespace", "workspace", tenant.Spec.Workspace)
-				r.Recorder.Event(tenant, corev1.EventTypeWarning, "WorkspaceCreateFailed", err2.Error())
+				logger.Error(err2, "failed to create tenant namespace", "namespace", tenant.Name)
+				r.Recorder.Event(tenant, corev1.EventTypeWarning, "NamespaceCreateFailed", err2.Error())
 				r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, "namespace create failed: "+err2.Error())
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 			}
-			logger.Info("workspace namespace created", "workspace", tenant.Spec.Workspace)
-			r.Recorder.Event(tenant, corev1.EventTypeNormal, "WorkspaceCreated", tenant.Spec.Workspace)
+			logger.Info("tenant namespace created", "namespace", tenant.Name)
+			r.Recorder.Event(tenant, corev1.EventTypeNormal, "NamespaceCreated", tenant.Name)
 		} else {
-			logger.Error(err, "error checking workspace namespace", "workspace", tenant.Spec.Workspace)
-			r.Recorder.Event(tenant, corev1.EventTypeWarning, "WorkspaceCheckFailed", err.Error())
+			logger.Error(err, "error checking tenant namespace", "namespace", tenant.Name)
+			r.Recorder.Event(tenant, corev1.EventTypeWarning, "NamespaceCheckFailed", err.Error())
 			r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseError, "namespace check failed: "+err.Error())
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 	} else {
-		logger.Info("workspace namespace exists", "workspace", tenant.Spec.Workspace)
-		r.Recorder.Event(tenant, corev1.EventTypeNormal, "WorkspaceExists", tenant.Spec.Workspace)
+		logger.Info("tenant namespace exists", "namespace", tenant.Name)
+		r.Recorder.Event(tenant, corev1.EventTypeNormal, "NamespaceExists", tenant.Name)
 	}
 
 	// Central chart management removed from CRD; single-cluster controller no longer performs helm actions.
-	r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, "workspace ensured; central chart managed externally")
+	r.setStatus(ctx, tenant, platformv1alpha1.TenantPhaseReady, "namespace ensured; central chart managed externally")
 	return ctrl.Result{}, nil
 
 	// If release exists and fingerprint unchanged, skip upgrade.

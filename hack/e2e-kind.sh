@@ -8,11 +8,10 @@ REMOTE_CLUSTER=remote
 NAMESPACE=default
 REMOTE_SECRET=demo-remote-1
 REMOTE_SECRET_LABEL="sigs.k8s.io/multicluster-runtime-kubeconfig=true"
-TENANT_NAME=e2e-acme
-WORKSPACE_NS=e2e-acme-workspace
-CHART_REPO=https://charts.jetstack.io
-CHART_NAME=cert-manager
-CHART_VERSION=1.19.1
+TENANT_NAME=e2e-echo
+CHART_REPO=https://ealenn.github.io/charts
+CHART_NAME=echo-server
+CHART_VERSION=0.5.0
 VALUES='{"replicaCount":1}'
 
 log() { printf "[e2e] %s\n" "$*"; }
@@ -159,8 +158,7 @@ kind: Tenant
 metadata:
   name: ${TENANT_NAME}
   namespace: ${NAMESPACE}
-spec:
-  workspace: ${WORKSPACE_NS}
+spec: {}
 EOF
 
 log "apply same tenant resource to home cluster for visibility"
@@ -170,19 +168,8 @@ kind: Tenant
 metadata:
   name: ${TENANT_NAME}
   namespace: ${NAMESPACE}
-spec:
-  workspace: ${WORKSPACE_NS}
+spec: {}
 EOF
-
-log "wait for workspace namespace on remote cluster"
-# Check remote cluster directly by using its kubeconfig
-REMOTE_KUBECONFIG=/tmp/remote-kind.kubeconfig
-for i in {1..30}; do
-  KUBECONFIG=$REMOTE_KUBECONFIG kubectl get ns "$WORKSPACE_NS" >/dev/null 2>&1 && break
-  sleep 2
-  [ $i -eq 30 ] && { log "namespace not created in remote cluster"; exit 1; }
-done
-log "namespace present on remote cluster"
 
 log "check tenant phase on remote cluster (timeout 10m)"
 # 10 minutes total: 200 iterations * 3s sleep = 600s.
@@ -203,35 +190,35 @@ for i in {1..200}; do
 done
 log "tenant phase is Ready on home cluster"
 
-log "verify cert-manager deployments present in workspace namespace on remote cluster"
+log "verify deployments present in tenant namespace on remote cluster"
 # Deployment names are prefixed by the Helm release name (tenant-<tenantName>-<secretName>) since we use the cluster Secret name.
 RELEASE_PREFIX="tenant-${TENANT_NAME}-${REMOTE_SECRET}"
 missingCount=0
-for deploy in ${RELEASE_PREFIX}-cert-manager ${RELEASE_PREFIX}-cert-manager-cainjector ${RELEASE_PREFIX}-cert-manager-webhook; do
+for deploy in ${RELEASE_PREFIX}-echo-server; do
   for i in {1..60}; do
-    OUT=$(KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy "$deploy" -n "$WORKSPACE_NS" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+    OUT=$(KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy "$deploy" -n "$TENANT_NAME" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
     if [ -n "$OUT" ] && [ "$OUT" -ge 1 ]; then
       log "deployment $deploy ready ($OUT replicas)"
       break
     fi
     sleep 2
-    [ $i -eq 60 ] && { log "deployment $deploy not ready after 120s"; KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy "$deploy" -n "$WORKSPACE_NS" -o yaml || { missingCount=$((missingCount+1)); }; break; }
+    [ $i -eq 60 ] && { log "deployment $deploy not ready after 120s"; KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy "$deploy" -n "$TENANT_NAME" -o yaml || { missingCount=$((missingCount+1)); }; break; }
   done
 done
 
 if [ $missingCount -gt 0 ]; then
   log "some expected deployments missing or not ready; listing all deployments for diagnostics"
-  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy -n "$WORKSPACE_NS"
+  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy -n "$TENANT_NAME"
   log "checking for alternative prefix using cluster name"
   ALT_PREFIX="tenant-${TENANT_NAME}-${REMOTE_CLUSTER}"
-  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy -n "$WORKSPACE_NS" | awk '{print $1}' | grep "${ALT_PREFIX}-cert-manager" >/dev/null 2>&1 && {
+  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get deploy -n "$TENANT_NAME" | awk '{print $1}' | grep "${ALT_PREFIX}-echo-server" >/dev/null 2>&1 && {
     log "alternative prefix ${ALT_PREFIX} appears present; consider updating REMOTE_SECRET or release naming logic"
   }
   [ $missingCount -gt 0 ] && { log "e2e failing due to missing deployments"; exit 1; }
 fi
 
-log "verify cert-manager pods running"
-KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get pods -n "$WORKSPACE_NS"
+log "verify echo-server pods running"
+KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get pods -n "$TENANT_NAME"
 
 # Delete tenant and verify cleanup (helm uninstall + namespace delete)
 log "delete tenant on remote and home clusters"
@@ -240,11 +227,11 @@ kubectl --kubeconfig /tmp/home-kind.kubeconfig delete tenant "$TENANT_NAME" -n "
 
 log "wait for namespace deletion on remote cluster"
 for i in {1..120}; do
-  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get ns "$WORKSPACE_NS" >/dev/null 2>&1 || break
+  KUBECONFIG=/tmp/remote-kind.kubeconfig kubectl get ns "$TENANT_NAME" >/dev/null 2>&1 || break
   sleep 2
-  [ $i -eq 120 ] && { log "namespace $WORKSPACE_NS not deleted in remote cluster"; exit 1; }
+  [ $i -eq 120 ] && { log "namespace $TENANT_NAME not deleted in remote cluster"; exit 1; }
 done
-log "workspace namespace deleted on remote cluster"
+log "tenant namespace deleted on remote cluster"
 
 log "terminate operator (explicit)"
 if [ -n "$OP_PID" ] && kill -0 $OP_PID 2>/dev/null; then

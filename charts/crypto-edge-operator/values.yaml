@@ -183,10 +183,10 @@ installMode:
 
 # Central Helm chart configuration passed as flags to the operator.
 chart:
-  repo: "https://charts.jetstack.io"
-  name: "cert-manager"
-  version: "1.19.1"
-  installCRDs: true
+  repo: "https://ealenn.github.io/charts"
+  name: "echo-server"
+  version: "0.5.0"
+  installCRDs: false
 
 # Discovery / kubeconfig secret settings.
 discovery:

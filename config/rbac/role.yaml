@@ -1,14 +1,23 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: tenant-operator-role
+  name: crypto-edge-operator-role
 rules:
   - apiGroups: ["mesh.openkcm.io"]
-    resources: ["tenants"]
+    resources: ["cryptoedgedeployments"]
     verbs: ["get", "list", "watch", "update", "patch"]
   - apiGroups: ["mesh.openkcm.io"]
-    resources: ["tenants/status"]
+    resources: ["cryptoedgedeployments/status"]
     verbs: ["get", "update", "patch"]
+  - apiGroups: ["mesh.openkcm.io"]
+    resources: ["accounts"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["mesh.openkcm.io"]
+    resources: ["accounts/status"]
+    verbs: ["get"]
+  - apiGroups: ["mesh.openkcm.io"]
+    resources: ["regions"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]
@@ -18,17 +27,3 @@ rules:
   - apiGroups: [""]
     resources: ["events"]
     verbs: ["create", "patch", "update", "get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: crypto-edge-operator-clusterrole
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - namespaces
-    verbs:
-      - get
-      - list
-      - delete

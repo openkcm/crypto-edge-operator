@@ -61,7 +61,6 @@ spec:
             - "-chart-repo={{ .Values.chart.repo }}"
             - "-chart-name={{ .Values.chart.name }}"
             - "-chart-version={{ .Values.chart.version }}"
-            - "-chart-install-crds={{ .Values.chart.installCRDs }}"
           {{- else if .Values.image.args }}
           args:
             {{- toYaml .Values.image.args | nindent 12 }}

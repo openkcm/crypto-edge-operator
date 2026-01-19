@@ -3,5 +3,4 @@ kind: Tenant
 metadata:
   name: hello
   namespace: default
-spec:
-  workspace: hellotenant
+spec: {}

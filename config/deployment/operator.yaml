@@ -1,25 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tenant-operator
-  namespace: default
+  name: crypto-edge-operator
+  namespace: crypto-edge-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: tenant-operator
+      app: crypto-edge-operator
   template:
     metadata:
       labels:
-        app: tenant-operator
+        app: crypto-edge-operator
     spec:
-      serviceAccountName: tenant-operator
+      serviceAccountName: crypto-edge-operator
       containers:
         - name: manager
-          image: ghcr.io/your-org/tenant-operator:dev
+          image: crypto-edge-operator:dev
           imagePullPolicy: IfNotPresent
           args:
             - --leader-elect=false
+            - --namespace=$(WATCH_NAMESPACE)
+            - --kubeconfig-label=sigs.k8s.io/multicluster-runtime-kubeconfig
           env:
             - name: WATCH_NAMESPACE
               valueFrom:

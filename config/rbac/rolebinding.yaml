@@ -1,26 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: tenant-operator-binding
+  name: crypto-edge-operator-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: tenant-operator-role
+  name: crypto-edge-operator-role
 subjects:
   - kind: ServiceAccount
-    name: tenant-operator
-    namespace: default
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: crypto-edge-operator-clusterrole
-rules:
-  - apiGroups:
-      - ""
-    resources:
-      - namespaces
-    verbs:
-      - get
-      - list
-      - delete
+    name: crypto-edge-operator
+    namespace: crypto-edge-operator

@@ -40,10 +40,6 @@ spec:
                   secretNamespace:
                     type: string
                 type: object
-              workspace:
-                type: string
-            required:
-            - workspace
             type: object
           status:
             description: TenantStatus captures observed state.

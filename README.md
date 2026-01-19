@@ -4,7 +4,7 @@ Experimental multicluster operator prototype.
 
 ## Central Helm Chart Configuration
 
-Helm chart rollout is now centrally configured by process flags instead of per-Tenant spec fields. All Tenants share the same chart (repository, name, version) and the operator installs/upgrades that chart into each Tenant workspace namespace on every engaged cluster.
+Helm chart rollout is now centrally configured by process flags instead of per-Tenant spec fields. All Tenants share the same chart (repository, name, version) and the operator installs/upgrades that chart into each Tenant namespace on every engaged cluster.
 
 ### Flags
 
@@ -54,7 +54,7 @@ kubectl delete tenant -A --all    # if safe; or selectively recreate
 kubectl apply -f config/crd/bases/mesh.openkcm.io_tenants.yaml
 ```
 
-Then create new Tenants with only `spec.workspace` (and optional `spec.clusterRef`). Chart selection is now purely an operator deployment concern.
+Then create new Tenants with only `spec.clusterRef` (optional). Chart selection is now purely an operator deployment concern.
 
 ### Environment Override
 
@@ -89,7 +89,7 @@ An annotation `mesh.openkcm.io/fingerprint-<cluster>` is set on the Tenant after
 See `internal/multicluster/example.go` for the reconciliation logic implementing these behaviors.
 # CryptoEdge Operator
 
-Multi-cluster Kubernetes operator that deploys a Helm chart for each `Tenant` custom resource present on a cluster. Each Tenant specifies a workspace namespace and chart details; the operator ensures the workspace namespace and performs Helm install / upgrade with idempotent fingerprint skipping. Tenants are now stored directly on the cluster they target (no shadow propagation model).
+Multi-cluster Kubernetes operator that deploys a Helm chart for each `Tenant` custom resource present on a cluster. The operator ensures the tenant namespace exists and performs Helm install / upgrade with idempotent fingerprint skipping. Tenants are now stored directly on the cluster they target (no shadow propagation model).
 
 ## Architecture
 1. Kubeconfig Provider: Discovers clusters via labeled Secrets (`sigs.k8s.io/multicluster-runtime-kubeconfig`). A self-cluster secret is auto-synthesized on startup (strategy C: validate, embed certs/keys, fallback to full file).
@@ -98,7 +98,7 @@ Multi-cluster Kubernetes operator that deploys a Helm chart for each `Tenant` cu
   - Ensure Tenant CRD present on that cluster (embedded manifest applied on demand).
   - Fetch the local Tenant object.
   - Optional cluster targeting: if `spec.clusterRef.secretName` set and does not match cluster name, reconciliation is skipped.
-  - Ensure workspace namespace exists (`spec.workspace`).
+  - Ensure tenant namespace exists (tenant name becomes the namespace).
   - Resolve Helm chart (repo URL + name + version) and values map.
   - Compute fingerprint (sha256 of repo|name|version|sorted key=value pairs) per cluster; skip Helm action if unchanged.
   - Install or upgrade release (`tenant-<name>-<cluster>`), update annotation `mesh.openkcm.io/fingerprint-<cluster>`.
@@ -110,13 +110,8 @@ Defined in `api/v1alpha1/tenant_types.go` (embedded YAML in `internal/multiclust
 Spec example:
 ```yaml
 spec:
-  workspace: acme-workspace
-  chart:
-    repo: https://charts.jetstack.io
-    name: cert-manager
-    version: 1.19.1
-    values:
-      replicaCount: 1
+  clusterRef:
+    secretName: remote-cluster-kubeconfig
 ```
 
 Status:
@@ -198,7 +193,7 @@ make e2e-kind
 ```
 Expected log snippets:
 ```
-workspace namespace created
+workspace workspace namespace created
 helm install success
 tenant phase is Ready on remote cluster
 e2e passed

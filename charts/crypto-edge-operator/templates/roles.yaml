@@ -16,10 +16,14 @@ rules:
       - pods
       - services
       - endpoints
+      - events
     verbs:
       - get
       - list
       - watch
+      - create
+      - patch
+      - update
   - apiGroups:
       - "rbac.authorization.k8s.io"
     resources:
@@ -46,6 +50,30 @@ rules:
       - get
       - list
       - watch
+
+  # Access to custom resources managed by the operator
+  - apiGroups:
+      - "mesh.openkcm.io"
+    resources:
+      - cryptoedgedeployments
+      - accounts
+      - regions
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+
+  - apiGroups:
+      - "mesh.openkcm.io"
+    resources:
+      - cryptoedgedeployments/status
+      - accounts/status
+    verbs:
+      - get
+      - update
+      - patch
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

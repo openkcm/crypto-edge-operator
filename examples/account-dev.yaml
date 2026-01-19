@@ -1,0 +1,8 @@
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Account
+metadata:
+  name: dev-account
+  namespace: default
+spec:
+  displayName: "Development Account"
+  owner: "dev-team"
