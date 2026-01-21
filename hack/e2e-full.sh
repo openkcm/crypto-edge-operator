@@ -195,6 +195,25 @@ spec:
   owner: "dev-team"
 EOF
 
+log "create Region CRs to define kubeconfig secrets"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$OP_NS" -f - <<EOF
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Region
+metadata:
+  name: edge01
+  namespace: ${OP_NS}
+spec:
+  kubeconfigSecretName: kubeconfig-edge01
+---
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Region
+metadata:
+  name: edge02
+  namespace: ${OP_NS}
+spec:
+  kubeconfigSecretName: kubeconfig-edge02
+EOF
+
 log "apply 3 CryptoEdgeDeployments per region to home cluster"
 # Create three deployments for edge01 and edge02
 TENANT_NAMES_EDGE01=()
@@ -234,25 +253,6 @@ spec:
 EOF
 done
 
-log "create Region CRs to define kubeconfig secrets"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$OP_NS" -f - <<EOF
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Region
-metadata:
-  name: edge01
-  namespace: ${OP_NS}
-spec:
-  kubeconfigSecretName: kubeconfig-edge01
----
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Region
-metadata:
-  name: edge02
-  namespace: ${OP_NS}
-spec:
-  kubeconfigSecretName: kubeconfig-edge02
-EOF
-
 log "wait for all CryptoEdgeDeployments Ready on home cluster (timeout 10m each)"
 # Edge01
 for name in ${TENANT_NAMES_EDGE01[@]}; do
@@ -275,6 +275,23 @@ for name in ${TENANT_NAMES_EDGE02[@]}; do
   done
   log "edge02 deployment $name Ready"
 done
+
+log "verify workloads exist in target namespaces on edge clusters"
+# Edge01 pods present in each target namespace
+for name in ${TENANT_NAMES_EDGE01[@]}; do
+  kubectl --kubeconfig /tmp/edge01-kind.kubeconfig get ns "$name" >/dev/null 2>&1 || { log "edge01 namespace $name missing"; exit 1; }
+  POD_COUNT=$(kubectl --kubeconfig /tmp/edge01-kind.kubeconfig get pods -n "$name" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  [ "${POD_COUNT:-0}" -ge 1 ] || { log "edge01 no pods found in namespace $name"; exit 1; }
+done
+log "edge01 workloads present in target namespaces"
+
+# Edge02 pods present in each target namespace
+for name in ${TENANT_NAMES_EDGE02[@]}; do
+  kubectl --kubeconfig /tmp/edge02-kind.kubeconfig get ns "$name" >/dev/null 2>&1 || { log "edge02 namespace $name missing"; exit 1; }
+  POD_COUNT=$(kubectl --kubeconfig /tmp/edge02-kind.kubeconfig get pods -n "$name" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  [ "${POD_COUNT:-0}" -ge 1 ] || { log "edge02 no pods found in namespace $name"; exit 1; }
+done
+log "edge02 workloads present in target namespaces"
 
 log "delete all CryptoEdgeDeployments on home cluster"
 for name in ${TENANT_NAMES_EDGE01[@]}; do

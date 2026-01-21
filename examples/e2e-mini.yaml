@@ -1,0 +1,48 @@
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Account
+metadata:
+  name: dev-account
+  namespace: default
+spec:
+  displayName: "Development Account"
+  owner: "dev-team"
+---
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Region
+metadata:
+  name: operator01
+  namespace: crypto-edge-operator
+spec:
+  kubeconfigSecretName: kubeconfig
+---
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: Region
+metadata:
+  name: operator02
+  namespace: crypto-edge-operator
+spec:
+  kubeconfigSecretName: kubeconfig
+---
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: CryptoEdgeDeployment
+metadata:
+  name: demo-edge01
+  namespace: default
+spec:
+  accountRef:
+    name: dev-account
+  regionRef:
+    name: operator01
+  targetRegion: operator01
+---
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: CryptoEdgeDeployment
+metadata:
+  name: demo-edge02
+  namespace: default
+spec:
+  accountRef:
+    name: dev-account
+  regionRef:
+    name: operator02
+  targetRegion: operator02

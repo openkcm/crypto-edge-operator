@@ -408,7 +408,8 @@ func rcedDeployAndStatus(
 func deployHelmChart(ctx context.Context, log logr.Logger, edgeCluster cluster.Cluster, namespace, releaseName, chartRepo, chartName, chartVersion string) error {
 	// Get REST config for edge cluster
 	restCfg := edgeCluster.GetConfig()
-	getter := helmutil.NewRemoteRESTClientGetter(restCfg)
+	// Ensure Helm uses the target namespace for applying manifests and storing release data
+	getter := helmutil.NewRemoteRESTClientGetterForNamespace(restCfg, namespace)
 
 	// Initialize Helm action config
 	actionConfig := new(action.Configuration)
@@ -494,7 +495,7 @@ func deployHelmChart(ctx context.Context, log logr.Logger, edgeCluster cluster.C
 func uninstallHelmChart(ctx context.Context, log logr.Logger, edgeCluster cluster.Cluster, namespace, releaseName string) error {
 	// Get REST config for edge cluster
 	restCfg := edgeCluster.GetConfig()
-	getter := helmutil.NewRemoteRESTClientGetter(restCfg)
+	getter := helmutil.NewRemoteRESTClientGetterForNamespace(restCfg, namespace)
 
 	// Initialize Helm action config
 	actionConfig := new(action.Configuration)

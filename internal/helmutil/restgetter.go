@@ -18,10 +18,21 @@ import (
 // It lazily constructs discovery and RESTMapper components.
 type RemoteRESTClientGetter struct {
 	baseConfig *rest.Config
+	namespace  string
 }
 
 func NewRemoteRESTClientGetter(cfg *rest.Config) *RemoteRESTClientGetter {
-	return &RemoteRESTClientGetter{baseConfig: rest.CopyConfig(cfg)}
+	return &RemoteRESTClientGetter{baseConfig: rest.CopyConfig(cfg), namespace: "default"}
+}
+
+// NewRemoteRESTClientGetterForNamespace sets a default namespace used by Helm's kube client when
+// templated objects do not specify metadata.namespace explicitly.
+func NewRemoteRESTClientGetterForNamespace(cfg *rest.Config, namespace string) *RemoteRESTClientGetter {
+	rg := &RemoteRESTClientGetter{baseConfig: rest.CopyConfig(cfg), namespace: namespace}
+	if rg.namespace == "" {
+		rg.namespace = "default"
+	}
+	return rg
 }
 
 func (g *RemoteRESTClientGetter) ToRESTConfig() (*rest.Config, error) {
@@ -54,7 +65,11 @@ func (g *RemoteRESTClientGetter) ToRESTMapper() (meta.RESTMapper, error) {
 
 // ToRawKubeConfigLoader returns a minimal empty kubeconfig loader used by helm for informational warning printing.
 func (g *RemoteRESTClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
-	// Minimal stub config (empty) for helm informational calls.
+	// Provide a loader that returns the desired namespace for Helm's kube client.
 	empty := clientcmdapi.NewConfig()
-	return clientcmd.NewDefaultClientConfig(*empty, &clientcmd.ConfigOverrides{})
+	overrides := &clientcmd.ConfigOverrides{}
+	if g.namespace != "" {
+		overrides.Context.Namespace = g.namespace
+	}
+	return clientcmd.NewDefaultClientConfig(*empty, overrides)
 }
