@@ -60,7 +60,19 @@ spec:
                 properties:
                   name:
                     type: string
+                  kubeconfig:
+                    description: Reference to a Secret containing kubeconfig for the target cluster.
+                    properties:
+                      secret:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        type: object
+                    type: object
                   kubeconfigSecretName:
+                    description: Deprecated; use region.kubeconfig.secretName/secretNamespace.
                     type: string
                 required:
                 - name

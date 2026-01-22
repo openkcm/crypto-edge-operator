@@ -10,7 +10,10 @@ spec:
     owner: "dev-team"
   region:
     name: operator01
-    kubeconfigSecretName: kubeconfig
+    kubeconfig:
+      secret:
+        name: kubeconfig
+        namespace: crypto-edge-operator
 ---
 apiVersion: mesh.openkcm.io/v1alpha1
 kind: CryptoEdgeDeployment
@@ -24,4 +27,7 @@ spec:
     owner: "dev-team"
   region:
     name: operator02
-    kubeconfigSecretName: kubeconfig
+    kubeconfig:
+      secret:
+        name: kubeconfig
+        namespace: crypto-edge-operator

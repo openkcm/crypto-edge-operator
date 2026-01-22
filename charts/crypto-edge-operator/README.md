@@ -39,8 +39,8 @@ helm install crypto-edge-operator ./charts/crypto-edge-operator \
 | `chart.version` | Central Helm chart version | `1.19.1` |
 | `chart.installCRDs` | Pass installCRDs Helm value (first install) | `true` |
 | `discovery.namespace` | Namespace containing kubeconfig secrets (`-namespace`) | `platform-system` |
-| `discovery.kubeconfigLabel` | Label selecting kubeconfig secrets (`-kubeconfig-label`) | `sigs.k8s.io/multicluster-runtime-kubeconfig` |
-| `discovery.kubeconfigKey` | Data key for kubeconfig content (`-kubeconfig-key`) | `kubeconfig` |
+| `discovery.kubeconfigLabel` | Deprecated: label-based discovery is no longer used |  |
+| `discovery.kubeconfigKey` | Deprecated: fixed key usage is no longer used |  |
 | `populateArgs` | Auto-generate container args from values | `true` |
 ## Operator Flags via Values
 ### CRDs/RBAC-only Mode
@@ -64,12 +64,9 @@ If `populateArgs=true` and `image.args` is empty, the chart will synthesize cont
 
 ```text
 -namespace=<discovery.namespace>
--kubeconfig-label=<discovery.kubeconfigLabel>
--kubeconfig-key=<discovery.kubeconfigKey>
 -chart-repo=<chart.repo>
 -chart-name=<chart.name>
 -chart-version=<chart.version>
--chart-install-crds=<chart.installCRDs>
 ```
 
 To override or add flags manually, set `image.args` explicitly; auto population is skipped.

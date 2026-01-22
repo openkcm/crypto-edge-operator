@@ -182,25 +182,6 @@ log "operator ready"
 
 log "skip creating Account/Region CRs; using inline spec fields"
 
-log "create Region CRs to define kubeconfig secrets"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$OP_NS" -f - <<EOF
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Region
-metadata:
-  name: edge01
-  namespace: ${OP_NS}
-spec:
-  kubeconfigSecretName: kubeconfig-edge01
----
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Region
-metadata:
-  name: edge02
-  namespace: ${OP_NS}
-spec:
-  kubeconfigSecretName: kubeconfig-edge02
-EOF
-
 log "apply 3 CryptoEdgeDeployments per region to home cluster"
 # Create three deployments for edge01 and edge02
 TENANT_NAMES_EDGE01=()
@@ -224,7 +205,10 @@ spec:
     owner: "dev-team"
   region:
     name: edge01
-    kubeconfigSecretName: kubeconfig-edge01
+    kubeconfig:
+      secret:
+        name: kubeconfig-edge01
+        namespace: ${OP_NS}
 EOF
   # Edge02
   kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
@@ -240,7 +224,10 @@ spec:
     owner: "dev-team"
   region:
     name: edge02
-    kubeconfigSecretName: kubeconfig-edge02
+    kubeconfig:
+      secret:
+        name: kubeconfig-edge02
+        namespace: ${OP_NS}
 EOF
 done
 

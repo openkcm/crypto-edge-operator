@@ -3,6 +3,7 @@ package secretprovider
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -10,6 +11,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/multicluster-runtime/pkg/manager"
 	"sigs.k8s.io/multicluster-runtime/pkg/multicluster"
 
 	corev1 "k8s.io/api/core/v1"
@@ -39,16 +41,26 @@ func (p *Provider) Get(ctx context.Context, name string) (crcluster.Cluster, err
 	if cl, ok := p.clusters[name]; ok {
 		return cl, nil
 	}
-	sec := &corev1.Secret{}
-	if err := p.client.Get(ctx, types.NamespacedName{Namespace: p.namespace, Name: name}, sec); err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, fmt.Errorf("cluster secret %s/%s not found", p.namespace, name)
+	// Support namespaced keys in the form "ns/name"; default to configured namespace otherwise.
+	ns := p.namespace
+	secName := name
+	if strings.Contains(name, "/") {
+		parts := strings.SplitN(name, "/", 2)
+		if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+			ns = parts[0]
+			secName = parts[1]
 		}
-		return nil, fmt.Errorf("error getting secret %s/%s: %w", p.namespace, name, err)
+	}
+	sec := &corev1.Secret{}
+	if err := p.client.Get(ctx, types.NamespacedName{Namespace: ns, Name: secName}, sec); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, fmt.Errorf("cluster secret %s/%s not found", ns, secName)
+		}
+		return nil, fmt.Errorf("error getting secret %s/%s: %w", ns, secName, err)
 	}
 	data, ok := sec.Data["kubeconfig"]
 	if !ok || len(data) == 0 {
-		return nil, fmt.Errorf("secret %s/%s missing kubeconfig key", p.namespace, name)
+		return nil, fmt.Errorf("secret %s/%s missing kubeconfig key", ns, secName)
 	}
 	cfg, err := buildConfig(data)
 	if err != nil {
@@ -93,3 +105,7 @@ func buildConfig(kubeconfig []byte) (*rest.Config, error) {
 // Start placeholder (no-op)
 // Start implements Provider's background tasks (none for now)
 func (p *Provider) Start(ctx context.Context) error { <-ctx.Done(); return ctx.Err() }
+
+// SetupWithManager allows the provider to integrate with the multicluster manager.
+// No background indexing or informers are required for on-demand secret lookup.
+func (p *Provider) SetupWithManager(ctx context.Context, mgr manager.Manager) error { return nil }

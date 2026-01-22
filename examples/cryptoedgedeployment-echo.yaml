@@ -1,12 +1,14 @@
 apiVersion: mesh.openkcm.io/v1alpha1
 kind: CryptoEdgeDeployment
 metadata:
-  # Name doubles as the namespace in the target cluster
   name: echo-server-edge01
   namespace: default
 spec:
-  # Reference to the owning Account
-  accountRef:
+  account:
     name: dev-account
-  # Target region (e.g., edge01, edge02, etc.)
-  targetRegion: edge01
+  region:
+    name: edge01
+    kubeconfig:
+      secret:
+        name: kubeconfig-edge01
+        namespace: platform-system

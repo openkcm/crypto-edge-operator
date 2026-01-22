@@ -191,8 +191,8 @@ chart:
 # Discovery / kubeconfig secret settings.
 discovery:
   namespace: "crypto-edge-operator"  # namespace containing kubeconfig secrets; flag -namespace
-  kubeconfigLabel: "sigs.k8s.io/multicluster-runtime-kubeconfig" # flag -kubeconfig-label
-  kubeconfigKey: "kubeconfig" # flag -kubeconfig-key
+  # kubeconfigLabel: deprecated (no longer used)
+  # kubeconfigKey: deprecated (no longer used)
 
 # When true, the chart will auto-populate image.args with flag values derived from above sections.
 populateArgs: true

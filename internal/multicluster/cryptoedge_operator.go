@@ -32,7 +32,8 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	mcmanager "sigs.k8s.io/multicluster-runtime/pkg/manager"
-	kubeconfigprovider "sigs.k8s.io/multicluster-runtime/providers/kubeconfig"
+
+	secretprovider "github.com/openkcm/crypto-edge-operator/multicluster/secretprovider"
 
 	platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
 	helmutil "github.com/openkcm/crypto-edge-operator/internal/helmutil"
@@ -106,6 +107,17 @@ func RunCryptoEdgeOperator() {
 	_ = clientgoscheme.AddToScheme(edgeScheme)
 	_ = platformv1alpha1.AddToScheme(edgeScheme)
 
+	// Controller on home cluster using standard controller-runtime manager
+	homeMgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme:                 homeScheme,
+		Metrics:                metricsserver.Options{BindAddress: "0"},
+		HealthProbeBindAddress: "",
+	})
+	if err != nil {
+		entryLog.Error(err, "Unable to create home manager")
+		os.Exit(1)
+	}
+
 	// Setup kubeconfig provider for multicluster
 	// Use minimal scheme for provider so edge clusters don't try to list platform CRDs
 	providerScheme := runtime.NewScheme()
@@ -113,15 +125,8 @@ func RunCryptoEdgeOperator() {
 	// Add platform CRDs to the scheme so manager can read them, but edge clusters won't have them
 	_ = platformv1alpha1.AddToScheme(providerScheme)
 
-	providerOpts := kubeconfigprovider.Options{
-		Namespace:             namespace,
-		KubeconfigSecretLabel: kubeconfigSecretLabel,
-		KubeconfigSecretKey:   kubeconfigSecretKey,
-		ClusterOptions: []cluster.Option{
-			func(o *cluster.Options) { o.Scheme = edgeScheme },
-		},
-	}
-	provider := kubeconfigprovider.New(providerOpts)
+	// Use custom secret provider that reads kubeconfig from any namespace on-demand.
+	provider := secretprovider.New(homeMgr.GetClient(), edgeScheme, namespace)
 
 	// Create multicluster manager with scheme that includes platform CRDs
 	managerOpts := mcmanager.Options{
@@ -148,17 +153,6 @@ func RunCryptoEdgeOperator() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", func(_ *http.Request) error { return nil }); err != nil {
 		entryLog.Error(err, "Unable to set up ready check")
-		os.Exit(1)
-	}
-
-	// Controller on home cluster using standard controller-runtime manager
-	homeMgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 homeScheme,
-		Metrics:                metricsserver.Options{BindAddress: "0"},
-		HealthProbeBindAddress: "",
-	})
-	if err != nil {
-		entryLog.Error(err, "Unable to create home manager")
 		os.Exit(1)
 	}
 
@@ -323,15 +317,26 @@ func rcedHandleDelete(
 	return reconcile.Result{}, nil
 }
 
-func rcedResolveTarget(ctx context.Context, homeMgr ctrl.Manager, namespace string, deployment *platformv1alpha1.CryptoEdgeDeployment) (secretName, regionName string) {
+func rcedResolveTarget(ctx context.Context, homeMgr ctrl.Manager, namespace string, deployment *platformv1alpha1.CryptoEdgeDeployment) (secretKey, regionName string) {
 	regionName = deployment.Spec.Region.Name
+	// Prefer new kubeconfig ref if provided
+	if deployment.Spec.Region.Kubeconfig != nil {
+		name := deployment.Spec.Region.Kubeconfig.Secret.Name
+		ns := deployment.Spec.Region.Kubeconfig.Secret.Namespace
+		if name != "" && ns != "" {
+			return ns + "/" + name, regionName
+		}
+		if name != "" {
+			// Namespace not specified; default to operator discovery namespace
+			return namespace + "/" + name, regionName
+		}
+	}
+	// Backward compatibility: use deprecated field
 	if deployment.Spec.Region.KubeconfigSecretName != "" {
-		secretName = deployment.Spec.Region.KubeconfigSecretName
+		return namespace + "/" + deployment.Spec.Region.KubeconfigSecretName, regionName
 	}
-	if secretName == "" {
-		secretName = regionName + "-kubeconfig"
-	}
-	return secretName, regionName
+	// Default: derive secret name from region in discovery namespace
+	return namespace + "/" + (regionName + "-kubeconfig"), regionName
 }
 
 func rcedEnsureNamespace(
@@ -343,7 +348,8 @@ func rcedEnsureNamespace(
 	recorder record.EventRecorder,
 ) (reconcile.Result, error) {
 	ns := &corev1.Namespace{}
-	if err := edgeCluster.GetClient().Get(ctx, client.ObjectKey{Name: nsName}, ns); err != nil {
+	// Use uncached reader for GET to avoid "cache not started" errors on freshly created clusters.
+	if err := edgeCluster.GetAPIReader().Get(ctx, client.ObjectKey{Name: nsName}, ns); err != nil {
 		if apierrors.IsNotFound(err) {
 			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}
 			if err := edgeCluster.GetClient().Create(ctx, ns); err != nil {

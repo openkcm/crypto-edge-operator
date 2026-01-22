@@ -41,9 +41,26 @@ type CryptoEdgeDeploymentSpec struct {
 type RegionInfo struct {
 	// Name specifies the logical region/edge cluster name (e.g., edge01).
 	Name string `json:"name" yaml:"name"`
+	// Kubeconfig optionally references a Secret containing the kubeconfig
+	// for the target edge cluster. If not set, defaults to a Secret named
+	// "<region-name>-kubeconfig" in the operator discovery namespace.
+	Kubeconfig *KubeconfigRef `json:"kubeconfig,omitempty" yaml:"kubeconfig,omitempty"`
+
 	// KubeconfigSecretName optionally overrides the default kubeconfig secret name.
-	// If empty, defaults to "<region-name>-kubeconfig".
+	// Deprecated: use Kubeconfig.secretName and Kubeconfig.secretNamespace instead.
 	KubeconfigSecretName string `json:"kubeconfigSecretName,omitempty" yaml:"kubeconfigSecretName,omitempty"`
+}
+
+// KubeconfigRef points to a namespaced Secret that contains kubeconfig data.
+type KubeconfigRef struct {
+	// Secret references the namespaced Secret containing the kubeconfig.
+	Secret SecretRef `json:"secret,omitempty" yaml:"secret,omitempty"`
+}
+
+// SecretRef is a simple namespaced name reference for a Secret.
+type SecretRef struct {
+	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
 // CryptoEdgeDeploymentStatus captures observed state.
