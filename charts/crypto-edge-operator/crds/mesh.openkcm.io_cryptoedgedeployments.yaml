@@ -43,23 +43,31 @@ spec:
           spec:
             description: CryptoEdgeDeploymentSpec defines the desired state.
             properties:
-              accountRef:
-                description: AccountRef is a required reference to the Account that
-                  owns this deployment.
+              account:
+                description: Inline account information for the owner of this deployment.
                 properties:
                   name:
+                    type: string
+                  displayName:
+                    type: string
+                  owner:
                     type: string
                 required:
                 - name
                 type: object
-              targetRegion:
-                description: |-
-                  TargetRegion specifies the target edge cluster (e.g., edge01, edge02, etc.).
-                  The deployment will be rolled out to this cluster.
-                type: string
+              region:
+                description: Inline region configuration for the target edge cluster.
+                properties:
+                  name:
+                    type: string
+                  kubeconfigSecretName:
+                    type: string
+                required:
+                - name
+                type: object
             required:
-            - accountRef
-            - targetRegion
+            - account
+            - region
             type: object
           status:
             description: CryptoEdgeDeploymentStatus captures observed state.

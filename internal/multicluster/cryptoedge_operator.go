@@ -219,20 +219,17 @@ func reconcileCED(
 		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
-	// Validate Account exists
-	account := &platformv1alpha1.Account{}
-	accountKey := client.ObjectKey{Name: deployment.Spec.AccountRef.Name, Namespace: deployment.Namespace}
-	if err := homeMgr.GetClient().Get(ctx, accountKey, account); err != nil {
-		log.Error(err, "account not found", "account", deployment.Spec.AccountRef.Name)
+	// Validate inline account info is present
+	if deployment.Spec.Account.Name == "" {
 		deployment.Status.Phase = platformv1alpha1.CryptoEdgeDeploymentPhaseError
-		deployment.Status.LastMessage = "Account " + deployment.Spec.AccountRef.Name + " not found"
-		setReadyCondition(deployment, metav1.ConditionFalse, "AccountNotFound", deployment.Status.LastMessage)
+		deployment.Status.LastMessage = "Spec.account.name must be set"
+		setReadyCondition(deployment, metav1.ConditionFalse, "AccountMissing", deployment.Status.LastMessage)
 		_ = homeMgr.GetClient().Status().Update(ctx, deployment)
-		recorder.Event(deployment, corev1.EventTypeWarning, "AccountNotFound", deployment.Status.LastMessage)
+		recorder.Event(deployment, corev1.EventTypeWarning, "AccountMissing", deployment.Status.LastMessage)
 		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	log.Info("account validated", "account", deployment.Spec.AccountRef.Name)
-	recorder.Event(deployment, corev1.EventTypeNormal, "AccountValidated", "Account "+deployment.Spec.AccountRef.Name+" validated")
+	log.Info("account info validated", "account", deployment.Spec.Account.Name)
+	recorder.Event(deployment, corev1.EventTypeNormal, "AccountValidated", "Account "+deployment.Spec.Account.Name+" validated")
 
 	// Handle deletion fast-path
 	if !deployment.DeletionTimestamp.IsZero() {
@@ -252,13 +249,13 @@ func reconcileCED(
 
 	targetSecretName, regionName := rcedResolveTarget(ctx, homeMgr, namespace, deployment)
 	log.Info("routing to edge cluster", "targetRegion", regionName, "targetSecret", targetSecretName)
-	recorder.Event(deployment, corev1.EventTypeNormal, "Routing", "Routing to region "+deployment.Spec.TargetRegion)
+	recorder.Event(deployment, corev1.EventTypeNormal, "Routing", "Routing to region "+regionName)
 
 	edgeCluster, err := mgr.GetCluster(ctx, targetSecretName)
 	if err != nil {
-		log.Error(err, "failed to get edge cluster", "targetRegion", deployment.Spec.TargetRegion)
+		log.Error(err, "failed to get edge cluster", "targetRegion", regionName)
 		deployment.Status.Phase = platformv1alpha1.CryptoEdgeDeploymentPhaseError
-		deployment.Status.LastMessage = "Edge cluster " + deployment.Spec.TargetRegion + " not available"
+		deployment.Status.LastMessage = "Edge cluster " + regionName + " not available"
 		setReadyCondition(deployment, metav1.ConditionFalse, "EdgeUnavailable", deployment.Status.LastMessage)
 		_ = homeMgr.GetClient().Status().Update(ctx, deployment)
 		recorder.Event(deployment, corev1.EventTypeWarning, "EdgeUnavailable", deployment.Status.LastMessage)
@@ -285,7 +282,7 @@ func rcedHandleDelete(
 	const finalizerName = "mesh.openkcm.io/cryptoedgedeployment-finalizer"
 	targetSecretName, regionName := rcedResolveTarget(ctx, homeMgr, namespace, deployment)
 	log.Info("deletion: routing to edge cluster", "targetRegion", regionName, "targetSecret", targetSecretName)
-	recorder.Event(deployment, corev1.EventTypeNormal, "DeleteStarted", "Routing delete to region "+deployment.Spec.TargetRegion)
+	recorder.Event(deployment, corev1.EventTypeNormal, "DeleteStarted", "Routing delete to region "+regionName)
 	edgeCluster, err := mgr.GetCluster(ctx, targetSecretName)
 	if err == nil {
 		releaseName := "ced-" + deployment.Name
@@ -306,7 +303,7 @@ func rcedHandleDelete(
 			recorder.Event(deployment, corev1.EventTypeNormal, "EdgeNamespaceDeleteRequested", "Requested deletion for namespace "+deployment.Name)
 		}
 	} else {
-		log.Error(err, "deletion: failed to get edge cluster", "targetRegion", deployment.Spec.TargetRegion)
+		log.Error(err, "deletion: failed to get edge cluster", "targetRegion", regionName)
 	}
 	// remove finalizer
 	finalizers := deployment.GetFinalizers()
@@ -327,15 +324,9 @@ func rcedHandleDelete(
 }
 
 func rcedResolveTarget(ctx context.Context, homeMgr ctrl.Manager, namespace string, deployment *platformv1alpha1.CryptoEdgeDeployment) (secretName, regionName string) {
-	regionName = deployment.Spec.TargetRegion
-	if deployment.Spec.RegionRef != nil && deployment.Spec.RegionRef.Name != "" {
-		regionName = deployment.Spec.RegionRef.Name
-	}
-	region := &platformv1alpha1.Region{}
-	if err := homeMgr.GetClient().Get(ctx, client.ObjectKey{Name: regionName, Namespace: namespace}, region); err == nil {
-		if region.Spec.KubeconfigSecretName != "" {
-			secretName = region.Spec.KubeconfigSecretName
-		}
+	regionName = deployment.Spec.Region.Name
+	if deployment.Spec.Region.KubeconfigSecretName != "" {
+		secretName = deployment.Spec.Region.KubeconfigSecretName
 	}
 	if secretName == "" {
 		secretName = regionName + "-kubeconfig"
@@ -359,8 +350,8 @@ func rcedEnsureNamespace(
 				log.Error(err, "failed to create namespace on edge", "namespace", nsName)
 				return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 			}
-			log.Info("created namespace on edge cluster", "namespace", nsName, "region", deployment.Spec.TargetRegion)
-			recorder.Event(deployment, corev1.EventTypeNormal, "EdgeNamespaceCreated", "Namespace "+nsName+" created on "+deployment.Spec.TargetRegion)
+			log.Info("created namespace on edge cluster", "namespace", nsName, "region", deployment.Spec.Region.Name)
+			recorder.Event(deployment, corev1.EventTypeNormal, "EdgeNamespaceCreated", "Namespace "+nsName+" created on "+deployment.Spec.Region.Name)
 		} else {
 			log.Error(err, "failed to check namespace")
 			return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
@@ -394,14 +385,14 @@ func rcedDeployAndStatus(
 	recorder.Event(deployment, corev1.EventTypeNormal, "HelmDeployed", "Release "+releaseName+" deployed to "+nsName)
 
 	deployment.Status.Phase = platformv1alpha1.CryptoEdgeDeploymentPhaseReady
-	deployment.Status.LastMessage = "Successfully deployed to region " + deployment.Spec.TargetRegion
+	deployment.Status.LastMessage = "Successfully deployed to region " + deployment.Spec.Region.Name
 	deployment.Status.LastAppliedChart = chartRepo + "/" + chartName + ":" + chartVersion
-	setReadyCondition(deployment, metav1.ConditionTrue, "Deployed", "Successfully deployed to region "+deployment.Spec.TargetRegion)
+	setReadyCondition(deployment, metav1.ConditionTrue, "Deployed", "Successfully deployed to region "+deployment.Spec.Region.Name)
 	if err := homeMgr.GetClient().Status().Update(ctx, deployment); err != nil {
 		log.Error(err, "failed to update status")
 	}
-	log.Info("deployment reconciled successfully", "region", deployment.Spec.TargetRegion)
-	recorder.Event(deployment, corev1.EventTypeNormal, "Ready", "Deployment ready in region "+deployment.Spec.TargetRegion)
+	log.Info("deployment reconciled successfully", "region", deployment.Spec.Region.Name)
+	recorder.Event(deployment, corev1.EventTypeNormal, "Ready", "Deployment ready in region "+deployment.Spec.Region.Name)
 	return reconcile.Result{}, nil
 }
 

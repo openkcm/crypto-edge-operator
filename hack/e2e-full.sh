@@ -110,12 +110,9 @@ kubectl config get-contexts || true
 
 # kubeconfigs already extracted above
 
-log "install CRDs (Account, CryptoEdgeDeployment) in home cluster"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -f config/crd/bases/
-
-log "install CRDs (Account, CryptoEdgeDeployment, Region) in edge clusters"
-kubectl --kubeconfig /tmp/edge01-kind.kubeconfig apply -f config/crd/bases/
-kubectl --kubeconfig /tmp/edge02-kind.kubeconfig apply -f config/crd/bases/
+log "install CRD (CryptoEdgeDeployment) in home cluster"
+kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -f config/crd/bases/mesh.openkcm.io_cryptoedgedeployments.yaml
+log "skip installing CRDs in edge clusters (not required)"
 
 log "build operator Docker image"
 docker build -t "$OP_IMAGE" .
@@ -183,36 +180,7 @@ if ! kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" rollout status d
 fi
 log "operator ready"
 
-log "create Account on home cluster"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Account
-metadata:
-  name: dev-account
-  namespace: ${TENANT_NS}
-spec:
-  displayName: "Development Account"
-  owner: "dev-team"
-EOF
-
-log "create Region CRs to define kubeconfig secrets"
-kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$OP_NS" -f - <<EOF
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Region
-metadata:
-  name: edge01
-  namespace: ${OP_NS}
-spec:
-  kubeconfigSecretName: kubeconfig-edge01
----
-apiVersion: mesh.openkcm.io/v1alpha1
-kind: Region
-metadata:
-  name: edge02
-  namespace: ${OP_NS}
-spec:
-  kubeconfigSecretName: kubeconfig-edge02
-EOF
+log "skip creating Account/Region CRs; using inline spec fields"
 
 log "apply 3 CryptoEdgeDeployments per region to home cluster"
 # Create three deployments for edge01 and edge02
@@ -231,11 +199,13 @@ metadata:
   name: ${NAME_EDGE01}
   namespace: ${TENANT_NS}
 spec:
-  accountRef:
+  account:
     name: dev-account
-  regionRef:
+    displayName: "Development Account"
+    owner: "dev-team"
+  region:
     name: edge01
-  targetRegion: edge01
+    kubeconfigSecretName: kubeconfig-edge01
 EOF
   # Edge02
   kubectl --kubeconfig /tmp/home-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
@@ -245,11 +215,13 @@ metadata:
   name: ${NAME_EDGE02}
   namespace: ${TENANT_NS}
 spec:
-  accountRef:
+  account:
     name: dev-account
-  regionRef:
+    displayName: "Development Account"
+    owner: "dev-team"
+  region:
     name: edge02
-  targetRegion: edge02
+    kubeconfigSecretName: kubeconfig-edge02
 EOF
 done
 

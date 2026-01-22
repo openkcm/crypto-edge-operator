@@ -15,29 +15,35 @@ const (
 	CryptoEdgeDeploymentPhaseError   CryptoEdgeDeploymentPhase = "Error"
 )
 
-// AccountRef references an Account in the same namespace.
-type AccountRef struct {
+// AccountInfo contains inline information about the owning account.
+// This replaces the external Account CRD reference.
+type AccountInfo struct {
+	// Name identifies the logical account owner of this deployment.
 	Name string `json:"name" yaml:"name"`
+	// DisplayName is an optional human-readable name.
+	DisplayName string `json:"displayName,omitempty" yaml:"displayName,omitempty"`
+	// Owner is an optional organizational owner/tenant marker.
+	Owner string `json:"owner,omitempty" yaml:"owner,omitempty"`
 }
 
 // CryptoEdgeDeploymentSpec defines the desired state.
 type CryptoEdgeDeploymentSpec struct {
-	// AccountRef is a required reference to the Account that owns this deployment.
-	AccountRef AccountRef `json:"accountRef" yaml:"accountRef"`
+	// Account contains inline information about the owner of this deployment.
+	// Replaces the external Account CRD reference.
+	Account AccountInfo `json:"account" yaml:"account"`
 
-	// RegionRef references a Region resource (in the operator namespace) that
-	// defines the kubeconfig secret for the target cluster.
-	// If omitted, TargetRegion is used as a simple region name.
-	RegionRef *RegionRef `json:"regionRef,omitempty" yaml:"regionRef,omitempty"`
-
-	// TargetRegion specifies the target edge cluster (e.g., edge01, edge02, etc.).
-	// The deployment will be rolled out to this cluster.
-	TargetRegion string `json:"targetRegion" yaml:"targetRegion"`
+	// Region contains inline information about the target region/edge cluster.
+	// Replaces the external Region CRD reference.
+	Region RegionInfo `json:"region" yaml:"region"`
 }
 
-// RegionRef references a Region by name.
-type RegionRef struct {
+// RegionInfo carries inline target region configuration.
+type RegionInfo struct {
+	// Name specifies the logical region/edge cluster name (e.g., edge01).
 	Name string `json:"name" yaml:"name"`
+	// KubeconfigSecretName optionally overrides the default kubeconfig secret name.
+	// If empty, defaults to "<region-name>-kubeconfig".
+	KubeconfigSecretName string `json:"kubeconfigSecretName,omitempty" yaml:"kubeconfigSecretName,omitempty"`
 }
 
 // CryptoEdgeDeploymentStatus captures observed state.

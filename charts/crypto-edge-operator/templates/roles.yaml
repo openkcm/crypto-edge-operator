@@ -56,8 +56,6 @@ rules:
       - "mesh.openkcm.io"
     resources:
       - cryptoedgedeployments
-      - accounts
-      - regions
     verbs:
       - get
       - list
@@ -69,7 +67,6 @@ rules:
       - "mesh.openkcm.io"
     resources:
       - cryptoedgedeployments/status
-      - accounts/status
     verbs:
       - get
       - update
