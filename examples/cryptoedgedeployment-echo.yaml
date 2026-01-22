@@ -5,9 +5,8 @@ metadata:
   name: echo-server-edge01
   namespace: default
 spec:
-  # Inline account information
-  account:
+  # Reference to the owning Account
+  accountRef:
     name: dev-account
-  # Inline region information
-  region:
-    name: edge01
+  # Target region (e.g., edge01, edge02, etc.)
+  targetRegion: edge01
