@@ -78,7 +78,11 @@ See `values.yaml` for full list.
 Increment `Chart.yaml` version when template changes. Update `appVersion` when operator code changes.
 
 ## CRD
-The chart installs the `CryptoEdgeDeployment` CRD. If you need to disable CRD installation for GitOps management, you can remove the file under `crds/` or introduce a boolean gate (future enhancement).
+The chart renders and installs the `CryptoEdgeDeployment` CRD via normal templates so upgrades can modify the CRD as needed.
+
+- Toggle via value: set `crds.install=false` to disable CRD management by this chart (for GitOps or preinstalled CRDs).
+- Uninstall behavior: the CRD is annotated with `helm.sh/resource-policy: keep` and will remain after chart uninstall.
+- Permissions: installing CRDs requires cluster-scoped privileges; ensure your Helm user can create `CustomResourceDefinition` resources.
 
 ## Uninstall
 ```bash
