@@ -16,6 +16,8 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
@@ -46,6 +48,12 @@ func RunCryptoEdgeOperator() {
 	var chartRepo string
 	var chartName string
 	var chartVersion string
+	var watchKubeconfig string
+	var watchContext string
+	var ensureWatchCRDs bool
+	var watchKubeconfigSecretName string
+	var watchKubeconfigSecretNamespace string
+	var watchKubeconfigSecretKey string
 
 	flag.StringVar(&namespace, "namespace", "default", "Namespace where kubeconfig secrets and CRDs are stored")
 	flag.StringVar(&kubeconfigSecretLabel, "kubeconfig-label", "sigs.k8s.io/multicluster-runtime-kubeconfig", "Label for kubeconfig secrets (override with KUBECONFIG_SECRET_LABEL)")
@@ -53,6 +61,12 @@ func RunCryptoEdgeOperator() {
 	flag.StringVar(&chartRepo, "chart-repo", "https://ealenn.github.io/charts", "Helm chart repository URL")
 	flag.StringVar(&chartName, "chart-name", "echo-server", "Helm chart name")
 	flag.StringVar(&chartVersion, "chart-version", "0.5.0", "Helm chart version")
+	flag.StringVar(&watchKubeconfig, "watch-kubeconfig", "", "Path to kubeconfig for the watch (home) cluster; overrides in-cluster or default KUBECONFIG (deprecated if secret flags are set)")
+	flag.StringVar(&watchContext, "watch-context", "", "Optional kubeconfig context name for the watch cluster (applies to file or secret kubeconfig)")
+	flag.BoolVar(&ensureWatchCRDs, "ensure-watch-crds", false, "When true, ensure required CRDs exist on the watch cluster at startup")
+	flag.StringVar(&watchKubeconfigSecretName, "watch-kubeconfig-secret", "", "Name of Secret containing kubeconfig for the watch cluster (preferred over file)")
+	flag.StringVar(&watchKubeconfigSecretNamespace, "watch-kubeconfig-secret-namespace", "", "Namespace of Secret containing kubeconfig for the watch cluster (defaults to -namespace if empty)")
+	flag.StringVar(&watchKubeconfigSecretKey, "watch-kubeconfig-secret-key", "kubeconfig", "Data key in Secret containing kubeconfig bytes")
 
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
@@ -73,6 +87,30 @@ func RunCryptoEdgeOperator() {
 	}
 	if key := os.Getenv("KUBECONFIG_SECRET_KEY"); key != "" {
 		kubeconfigSecretKey = key
+	}
+	// Watch cluster config via env overrides
+	if v := os.Getenv("WATCH_KUBECONFIG"); v != "" {
+		watchKubeconfig = v
+	} else if v := os.Getenv("WATCH_CLUSTER_KUBECONFIG"); v != "" { // alias
+		watchKubeconfig = v
+	}
+	if v := os.Getenv("WATCH_CONTEXT"); v != "" {
+		watchContext = v
+	}
+	if v := os.Getenv("ENSURE_WATCH_CRDS"); v == "true" || v == "1" || v == "yes" {
+		ensureWatchCRDs = true
+	}
+	if v := os.Getenv("WATCH_KUBECONFIG_SECRET"); v != "" {
+		watchKubeconfigSecretName = v
+	}
+	if v := os.Getenv("WATCH_KUBECONFIG_SECRET_NAMESPACE"); v != "" {
+		watchKubeconfigSecretNamespace = v
+	}
+	if v := os.Getenv("WATCH_KUBECONFIG_SECRET_KEY"); v != "" {
+		watchKubeconfigSecretKey = v
+	}
+	if watchKubeconfigSecretNamespace == "" {
+		watchKubeconfigSecretNamespace = namespace
 	}
 
 	// Setup Helm environment
@@ -96,6 +134,14 @@ func RunCryptoEdgeOperator() {
 	entryLog.Info("Starting CryptoEdge operator", "namespace", namespace, "chart", fmt.Sprintf("%s/%s:%s", chartRepo, chartName, chartVersion))
 	entryLog.Info("Kubeconfig provider config", "namespace", namespace, "secretLabel", kubeconfigSecretLabel, "secretKey", kubeconfigSecretKey)
 
+	// Build watch cluster rest.Config (home cluster for CRDs & CryptoEdgeDeployment watcher)
+	watchCfg, watchHost, watchCtxUsed, err := buildWatchConfig(ctx, watchKubeconfig, watchContext, watchKubeconfigSecretNamespace, watchKubeconfigSecretName, watchKubeconfigSecretKey)
+	if err != nil {
+		entryLog.Error(err, "Failed to build watch cluster config")
+		os.Exit(1)
+	}
+	entryLog.Info("Watch cluster configured", "host", watchHost, "kubeconfig", truncatePath(watchKubeconfig), "context", watchCtxUsed)
+
 	// Create scheme for home cluster (includes platform CRDs)
 	homeScheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(homeScheme)
@@ -107,7 +153,7 @@ func RunCryptoEdgeOperator() {
 	_ = platformv1alpha1.AddToScheme(edgeScheme)
 
 	// Controller on home cluster using standard controller-runtime manager
-	homeMgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	homeMgr, err := ctrl.NewManager(watchCfg, ctrl.Options{
 		Scheme:                 homeScheme,
 		Metrics:                metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress: "",
@@ -134,10 +180,23 @@ func RunCryptoEdgeOperator() {
 		HealthProbeBindAddress: ":8081",
 		WebhookServer:          webhook.NewServer(webhook.Options{Port: 0}), // Disable webhooks
 	}
-	mgr, err := mcmanager.New(ctrl.GetConfigOrDie(), provider, managerOpts)
+	mgr, err := mcmanager.New(watchCfg, provider, managerOpts)
 	if err != nil {
 		entryLog.Error(err, "Unable to create manager")
 		os.Exit(1)
+	}
+	// Optionally ensure CRDs exist on the watch cluster (e.g., CryptoEdgeDeployment)
+	if ensureWatchCRDs {
+		cl, cerr := client.New(watchCfg, client.Options{Scheme: homeScheme})
+		if cerr != nil {
+			entryLog.Error(cerr, "Unable to construct client for CRD ensure")
+			os.Exit(1)
+		}
+		if err := EnsureCryptoEdgeDeploymentCRD(ctx, cl); err != nil {
+			entryLog.Error(err, "Ensure watch CRDs failed")
+			os.Exit(1)
+		}
+		entryLog.Info("Ensured watch CRDs present")
 	}
 
 	if err := provider.SetupWithManager(ctx, mgr); err != nil {
@@ -178,6 +237,77 @@ func RunCryptoEdgeOperator() {
 		entryLog.Error(err, "Manager exited with error")
 		os.Exit(1)
 	}
+}
+
+// buildWatchConfig returns a rest.Config for the watch/home cluster, the host it targets, the effective context used, and error.
+func buildWatchConfig(ctx context.Context, kubeconfigPath, kubeContext, secretNS, secretName, secretKey string) (*rest.Config, string, string, error) {
+	// If a Secret name is provided, load kubeconfig from that Secret in the current cluster.
+	if secretName != "" {
+		baseCfg := ctrl.GetConfigOrDie()
+		sch := runtime.NewScheme()
+		_ = clientgoscheme.AddToScheme(sch)
+		cl, err := client.New(baseCfg, client.Options{Scheme: sch})
+		if err != nil {
+			return nil, "", "", fmt.Errorf("construct client failed for secret fetch: %w", err)
+		}
+		sec := &corev1.Secret{}
+		if err := cl.Get(ctx, client.ObjectKey{Namespace: secretNS, Name: secretName}, sec); err != nil {
+			return nil, "", "", fmt.Errorf("fetch secret %s/%s failed: %w", secretNS, secretName, err)
+		}
+		data, ok := sec.Data[secretKey]
+		if !ok || len(data) == 0 {
+			return nil, "", "", fmt.Errorf("secret %s/%s missing key %q", secretNS, secretName, secretKey)
+		}
+		raw, err := clientcmd.Load(data)
+		if err != nil {
+			return nil, "", "", fmt.Errorf("parse kubeconfig from secret failed: %w", err)
+		}
+		overrides := &clientcmd.ConfigOverrides{}
+		usedCtx := raw.CurrentContext
+		if kubeContext != "" {
+			overrides.CurrentContext = kubeContext
+			usedCtx = kubeContext
+		}
+		cfg, err := clientcmd.NewDefaultClientConfig(*raw, overrides).ClientConfig()
+		if err != nil {
+			return nil, "", "", fmt.Errorf("build rest config from secret failed: %w", err)
+		}
+		return cfg, cfg.Host, usedCtx, nil
+	}
+	// If a kubeconfig path is provided, load from file with optional context.
+	if kubeconfigPath != "" {
+		loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+		overrides := &clientcmd.ConfigOverrides{}
+		usedCtx := ""
+		if kubeContext != "" {
+			overrides.CurrentContext = kubeContext
+			usedCtx = kubeContext
+		} else {
+			// Read the raw config to determine the current-context
+			rawCfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).RawConfig()
+			if err == nil {
+				usedCtx = rawCfg.CurrentContext
+			}
+		}
+		cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).ClientConfig()
+		if err != nil {
+			return nil, "", "", fmt.Errorf("loading watch kubeconfig failed: %w", err)
+		}
+		return cfg, cfg.Host, usedCtx, nil
+	}
+	// Fallback to in-cluster or default kubeconfig via controller-runtime.
+	cfg := ctrl.GetConfigOrDie()
+	return cfg, cfg.Host, "in-cluster", nil
+}
+
+func truncatePath(p string) string {
+	if p == "" {
+		return ""
+	}
+	if len(p) > 64 {
+		return "…" + p[len(p)-61:]
+	}
+	return p
 }
 
 func reconcileCED(

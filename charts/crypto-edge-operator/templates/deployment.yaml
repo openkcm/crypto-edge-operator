@@ -58,6 +58,21 @@ spec:
             - "-chart-repo={{ .Values.chart.repo }}"
             - "-chart-name={{ .Values.chart.name }}"
             - "-chart-version={{ .Values.chart.version }}"
+            {{- if .Values.watchCluster.context }}
+            - "-watch-context={{ .Values.watchCluster.context }}"
+            {{- end }}
+            {{- if .Values.watchCluster.ensureCrds }}
+            - "-ensure-watch-crds=true"
+            {{- end }}
+            {{- if .Values.watchCluster.secretName }}
+            - "-watch-kubeconfig-secret={{ .Values.watchCluster.secretName }}"
+            {{- end }}
+            {{- if .Values.watchCluster.secretNamespace }}
+            - "-watch-kubeconfig-secret-namespace={{ .Values.watchCluster.secretNamespace }}"
+            {{- end }}
+            {{- if .Values.watchCluster.secretKey }}
+            - "-watch-kubeconfig-secret-key={{ .Values.watchCluster.secretKey }}"
+            {{- end }}
           {{- else if .Values.image.args }}
           args:
             {{- toYaml .Values.image.args | nindent 12 }}

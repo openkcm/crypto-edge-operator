@@ -17,6 +17,12 @@ The multicluster entrypoint (`RunMulticlusterExample`) supports these flags:
 --namespace      Namespace containing kubeconfig secrets (default: default)
 --kubeconfig-label  Label selecting kubeconfig secrets (default: sigs.k8s.io/multicluster-runtime-kubeconfig)
 --kubeconfig-key    Data key for kubeconfig content in secret (default: kubeconfig)
+--watch-kubeconfig  Path to kubeconfig for the watch/home cluster (optional)
+--watch-context     Kubeconfig context name for the watch cluster (optional)
+--ensure-watch-crds Ensure required CRDs exist on the watch cluster at startup (default: false)
+--watch-kubeconfig-secret           Name of Secret containing kubeconfig for the watch cluster (preferred)
+--watch-kubeconfig-secret-namespace Namespace of the Secret (defaults to --namespace if empty)
+--watch-kubeconfig-secret-key       Data key in the Secret containing kubeconfig bytes (default: kubeconfig)
 ```
 
 Example run (local):
@@ -59,6 +65,25 @@ Then create new Tenants with only `spec.clusterRef` (optional). Chart selection 
 ### Environment Override
 
 Set `ALLOW_CHART_SKIP=true` in the operator environment to treat non-fatal chart load errors (e.g. temporary repo outage) as skippable, allowing the Tenant phase to progress to Ready if other conditions are satisfied.
+
+Additional env vars for watch cluster selection:
+
+* `WATCH_KUBECONFIG` (or `WATCH_CLUSTER_KUBECONFIG`): file path to the kubeconfig used for the watch/home cluster.
+* `WATCH_CONTEXT`: optional context; defaults to the kubeconfig `current-context`.
+* `ENSURE_WATCH_CRDS`: set to `true` to auto-ensure the CryptoEdgeDeployment CRD on the watch cluster.
+* `WATCH_KUBECONFIG_SECRET`: Secret name containing the kubeconfig for the watch cluster.
+* `WATCH_KUBECONFIG_SECRET_NAMESPACE`: Secret namespace (defaults to discovery `--namespace`).
+* `WATCH_KUBECONFIG_SECRET_KEY`: Data key in the Secret (default `kubeconfig`).
+
+Example (Helm chart): set values to reference a Secret the operator can read:
+
+```
+watchCluster:
+  secretName: "home-kubeconfig"
+  secretNamespace: "crypto-edge-operator"
+  secretKey: "kubeconfig"
+  ensureCrds: true
+```
 
 ### Events & Conditions
 
