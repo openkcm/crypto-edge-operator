@@ -196,3 +196,7 @@ discovery:
 
 # When true, the chart will auto-populate image.args with flag values derived from above sections.
 populateArgs: true
+
+# CRD installation control: when true, render and manage the CRD via templates.
+crds:
+  install: true

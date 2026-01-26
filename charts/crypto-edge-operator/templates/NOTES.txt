@@ -1,0 +1,17 @@
+Crypto Edge Operator installed.
+
+CRD check:
+- Verify: kubectl get crd cryptoedgedeployments.mesh.openkcm.io -o name
+- If not found, common causes:
+  - Insufficient RBAC: your user cannot create cluster-scoped CRDs.
+  - Helm upgrade semantics: CRDs in chart's crds/ are installed on helm install only, not on helm upgrade.
+
+Fix options:
+- Ask a cluster admin to install the CRD:
+  helm template {{ .Release.Name }} {{ .Chart.Path }} --show-only crds/mesh.openkcm.io_cryptoedgedeployments.yaml | kubectl apply -f -
+- Or uninstall and perform a fresh install with permissions that can create CRDs:
+  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
+  helm install {{ .Release.Name }} {{ .Chart.Path }} -n {{ .Release.Namespace }} --create-namespace
+
+After CRD is present, you can apply CryptoEdgeDeployment resources:
+- kubectl apply -f examples/e2e-mini.yaml
