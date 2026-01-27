@@ -10,3 +10,14 @@ includes:
       COMPONENTS: 'crypto-edge-operator'
       REPO_URL: 'https://github.com/openkcm/crypto-edge-operator'
       DOCKER_FILE_IDENTIFIER: crypto-edge-operator
+
+tasks:
+  run-watch-secret:
+    desc: Run operator using watch kubeconfig from Secret (env-driven)
+    env:
+      WATCH_KUBECONFIG_SECRET: '{{.WATCH_KUBECONFIG_SECRET}}'
+      WATCH_KUBECONFIG_SECRET_NAMESPACE: '{{.WATCH_KUBECONFIG_SECRET_NAMESPACE | default "crypto-edge-operator"}}'
+      WATCH_KUBECONFIG_SECRET_KEY: '{{.WATCH_KUBECONFIG_SECRET_KEY | default "kubeconfig"}}'
+      ENSURE_WATCH_CRDS: '{{.ENSURE_WATCH_CRDS | default "true"}}'
+    cmds:
+      - go run ./cmd/crypto-edge-operator -namespace={{.NAMESPACE | default "crypto-edge-operator"}}

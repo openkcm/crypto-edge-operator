@@ -194,6 +194,16 @@ discovery:
   # kubeconfigLabel: deprecated (no longer used)
   # kubeconfigKey: deprecated (no longer used)
 
+# Watch cluster (home) selection for CRD management and CryptoEdgeDeployment watching.
+# Preferred: provide kubeconfig via Secret reference in the current cluster.
+watchCluster:
+  context: ""          # optional context; defaults to kubeconfig current-context
+  ensureCrds: false     # if true, operator ensures CRDs on the watch cluster at startup
+  # Preferred: provide kubeconfig via Secret reference in the current cluster
+  secretName: ""
+  secretNamespace: ""
+  secretKey: "kubeconfig"
+
 # When true, the chart will auto-populate image.args with flag values derived from above sections.
 populateArgs: true
 
