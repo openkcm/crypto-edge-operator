@@ -333,6 +333,77 @@ func truncatePath(p string) string {
 	return p
 }
 
+// buildWatchConfig returns a rest.Config for the watch/home cluster, the host it targets, the effective context used, and error.
+func buildWatchConfig(ctx context.Context, kubeconfigPath, kubeContext, secretNS, secretName, secretKey string) (*rest.Config, string, string, error) {
+	// If a Secret name is provided, load kubeconfig from that Secret in the current cluster.
+	if secretName != "" {
+		baseCfg := ctrl.GetConfigOrDie()
+		sch := runtime.NewScheme()
+		_ = clientgoscheme.AddToScheme(sch)
+		cl, err := client.New(baseCfg, client.Options{Scheme: sch})
+		if err != nil {
+			return nil, "", "", fmt.Errorf("construct client failed for secret fetch: %w", err)
+		}
+		sec := &corev1.Secret{}
+		if err := cl.Get(ctx, client.ObjectKey{Namespace: secretNS, Name: secretName}, sec); err != nil {
+			return nil, "", "", fmt.Errorf("fetch secret %s/%s failed: %w", secretNS, secretName, err)
+		}
+		data, ok := sec.Data[secretKey]
+		if !ok || len(data) == 0 {
+			return nil, "", "", fmt.Errorf("secret %s/%s missing key %q", secretNS, secretName, secretKey)
+		}
+		raw, err := clientcmd.Load(data)
+		if err != nil {
+			return nil, "", "", fmt.Errorf("parse kubeconfig from secret failed: %w", err)
+		}
+		overrides := &clientcmd.ConfigOverrides{}
+		usedCtx := raw.CurrentContext
+		if kubeContext != "" {
+			overrides.CurrentContext = kubeContext
+			usedCtx = kubeContext
+		}
+		cfg, err := clientcmd.NewDefaultClientConfig(*raw, overrides).ClientConfig()
+		if err != nil {
+			return nil, "", "", fmt.Errorf("build rest config from secret failed: %w", err)
+		}
+		return cfg, cfg.Host, usedCtx, nil
+	}
+	// If a kubeconfig path is provided, load from file with optional context.
+	if kubeconfigPath != "" {
+		loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+		overrides := &clientcmd.ConfigOverrides{}
+		usedCtx := ""
+		if kubeContext != "" {
+			overrides.CurrentContext = kubeContext
+			usedCtx = kubeContext
+		} else {
+			// Read the raw config to determine the current-context
+			rawCfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).RawConfig()
+			if err == nil {
+				usedCtx = rawCfg.CurrentContext
+			}
+		}
+		cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).ClientConfig()
+		if err != nil {
+			return nil, "", "", fmt.Errorf("loading watch kubeconfig failed: %w", err)
+		}
+		return cfg, cfg.Host, usedCtx, nil
+	}
+	// Fallback to in-cluster or default kubeconfig via controller-runtime.
+	cfg := ctrl.GetConfigOrDie()
+	return cfg, cfg.Host, "in-cluster", nil
+}
+
+func truncatePath(p string) string {
+	if p == "" {
+		return ""
+	}
+	if len(p) > 64 {
+		return "…" + p[len(p)-61:]
+	}
+	return p
+}
+
 func reconcileCED(
 	ctx context.Context,
 	log logr.Logger,
