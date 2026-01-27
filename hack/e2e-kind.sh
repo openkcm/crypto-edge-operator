@@ -88,19 +88,19 @@ kubectl -n "$NAMESPACE" create secret generic "$REMOTE_SECRET" --from-file=kubec
   | yq e '.metadata.labels."sigs.k8s.io/multicluster-runtime-kubeconfig"="true"' - \
   | kubectl apply -f -
 
-log "build operator (cmd/crypto-edge-operator)"
-GO111MODULE=on go build -o /tmp/cryptoedge-operator ./cmd/crypto-edge-operator
+log "build operator (cmd/krypton-operator)"
+GO111MODULE=on go build -o /tmp/krypton-operator ./cmd/krypton-operator
 
 log "apply RBAC (namespace delete permissions) to remote cluster"
 kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f config/rbac/role.yaml
 kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f config/rbac/rolebinding.yaml
 # Grant namespace delete to the kubeconfig user used by the operator (out-of-cluster run)
 USER_NAME=$(kubectl config view --kubeconfig /tmp/remote-kind.kubeconfig -o jsonpath='{.users[0].name}')
-cat > /tmp/crypto-edge-operator-e2e-user-binding.yaml << 'EOF'
+cat > /tmp/krypton-operator-e2e-user-binding.yaml << 'EOF'
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: crypto-edge-operator-e2e-user-role
+  name: krypton-operator-e2e-user-role
 rules:
   - apiGroups: [""]
     resources: ["namespaces"]
@@ -115,16 +115,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: crypto-edge-operator-e2e-user-binding
+  name: krypton-operator-e2e-user-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: crypto-edge-operator-e2e-user-role
+  name: krypton-operator-e2e-user-role
 subjects:
   - kind: User
     name: ${USER_NAME}
 EOF
-kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f /tmp/crypto-edge-operator-e2e-user-binding.yaml
+kubectl --kubeconfig /tmp/remote-kind.kubeconfig apply -f /tmp/krypton-operator-e2e-user-binding.yaml
 
 log "start operator (background)"
 # Require actual chart install (do not skip on non-fatal repo errors for this test).

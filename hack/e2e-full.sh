@@ -25,7 +25,7 @@ CERTM_NAME=echo-server
 CERTM_VERSION=0.5.0
 
 OP_IMAGE=krypton-operator:dev
-OP_CHART_PATH=charts/crypto-edge-operator
+OP_CHART_PATH=charts/krypton-operator
 OP_RELEASE_NAME=krypton-operator
 OP_CRDS_RELEASE_NAME=krypton-operator-crds
 
@@ -173,7 +173,6 @@ helm --kubeconfig /tmp/home-kind.kubeconfig upgrade -i "$OP_RELEASE_NAME" "$OP_C
   --set image.registry= \
   --set image.tag=dev \
   --set image.pullPolicy=IfNotPresent \
-  --set image.command[0]=/crypto-edge-operator \
   --set installMode.crdsRbacOnly=false \
   --set autoscaling.enabled=false \
   --set discovery.namespace=$OP_NS \
@@ -325,7 +324,7 @@ for name in ${TENANT_NAMES_EDGE02[@]}; do
       log "edge02 deployment $name not Ready"
       kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get kryptondeployment "$name" -n "$TENANT_NS" -o yaml || true
       log "collecting operator diagnostics from home cluster"
-      OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+      OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=krypton-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
       if [ -n "$OP_POD" ]; then
         kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" logs "$OP_POD" --tail=400 || true
       else

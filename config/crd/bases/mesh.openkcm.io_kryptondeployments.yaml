@@ -4,22 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.3
-  name: tenants.mesh.openkcm.io
+  name: kryptondeployments.mesh.openkcm.io
 spec:
   group: mesh.openkcm.io
   names:
-    kind: Tenant
-    listKind: TenantList
-    plural: tenants
+    kind: KryptonDeployment
+    listKind: KryptonDeploymentList
+    plural: kryptondeployments
     shortNames:
-    - tenant
-    singular: tenant
+    - kd
+    singular: kryptondeployment
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Tenant is the Schema for the tenants API.
+        description: |-
+          KryptonDeployment is the Schema for the kryptondeployments API.
+          The name of the KryptonDeployment is used as the namespace name in the target cluster.
         properties:
           apiVersion:
             description: |-
@@ -39,20 +41,48 @@ spec:
           metadata:
             type: object
           spec:
-            description: TenantSpec defines desired state.
+            description: KryptonDeploymentSpec defines the desired state.
             properties:
-              clusterRef:
-                description: ClusterRef optionally targets a specific discovered cluster;
-                  if omitted the Tenant applies to the cluster it resides on.
+              account:
+                description: Inline account information for the owner of this deployment.
                 properties:
-                  secretName:
+                  name:
                     type: string
-                  secretNamespace:
+                  displayName:
                     type: string
+                  owner:
+                    type: string
+                required:
+                - name
                 type: object
+              region:
+                description: Inline region configuration for the target edge cluster.
+                properties:
+                  name:
+                    type: string
+                  kubeconfig:
+                    description: Reference to a Secret containing kubeconfig for the target cluster.
+                    properties:
+                      secret:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        type: object
+                    type: object
+                  kubeconfigSecretName:
+                    description: Deprecated; use region.kubeconfig.secretName/secretNamespace.
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - account
+            - region
             type: object
           status:
-            description: TenantStatus captures observed state.
+            description: KryptonDeploymentStatus captures observed state.
             properties:
               conditions:
                 items:
@@ -88,7 +118,7 @@ spec:
                         This field may not be empty.
                       maxLength: 1024
                       minLength: 1
-                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$ 
                       type: string
                     status:
                       description: status of the condition, one of True, False, Unknown.
@@ -115,7 +145,11 @@ spec:
               lastMessage:
                 type: string
               phase:
-                description: TenantPhase enumerates simple lifecycle states.
+                description: KryptonDeploymentPhase enumerates simple lifecycle states.
+                enum:
+                - Pending
+                - Ready
+                - Error
                 type: string
             type: object
         type: object

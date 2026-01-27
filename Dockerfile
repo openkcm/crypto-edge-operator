@@ -27,7 +27,7 @@ COPY . .
 # Build static binary (CGO disabled) for target OS/Arch
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
 	CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-	go build -v -trimpath -ldflags "-s -w" -o crypto-edge-operator ./cmd/crypto-edge-operator
+	go build -v -trimpath -ldflags "-s -w" -o krypton-operator ./cmd/krypton-operator
 
 ###############################################
 # Final stage: minimal runtime image
@@ -37,7 +37,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 RUN apk add --no-cache ca-certificates bash busybox coreutils curl
 WORKDIR /
-COPY --from=builder /workspace/crypto-edge-operator /crypto-edge-operator
+COPY --from=builder /workspace/krypton-operator /krypton-operator
 ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
 	TZ=UTC \
 	HELM_CACHE_HOME=/.cache/helm \
@@ -50,11 +50,11 @@ RUN mkdir -p /.cache/helm/repository /.config/helm /.local/share/helm && \
 	touch /.config/helm/repositories.yaml && \
 	chown -R 65532:65532 /.cache /.config /.local
 USER 65532:65532
-ENTRYPOINT ["/crypto-edge-operator"]
+ENTRYPOINT ["/krypton-operator"]
 CMD ["-help"]
 
-LABEL org.opencontainers.image.title="crypto-edge-operator-debug" \
-	org.opencontainers.image.source="https://github.com/openkcm/crypto-edge-operator" \
+LABEL org.opencontainers.image.title="krypton-operator-debug" \
+	org.opencontainers.image.source="https://github.com/openkcm/krypton-operator" \
 	org.opencontainers.image.revision="${COMMIT}" \
 	org.opencontainers.image.version="${VERSION}" \
 	org.opencontainers.image.licenses="Apache-2.0" \

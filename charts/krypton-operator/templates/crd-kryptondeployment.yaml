@@ -1,0 +1,114 @@
+{{- if .Values.crds.install }}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    helm.sh/resource-policy: keep
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: kryptondeployments.mesh.openkcm.io
+spec:
+  group: mesh.openkcm.io
+  names:
+    kind: KryptonDeployment
+    listKind: KryptonDeploymentList
+    plural: kryptondeployments
+    shortNames:
+    - kd
+    singular: kryptondeployment
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          KryptonDeployment is the Schema for the kryptondeployments API.
+          The name of the KryptonDeployment is used as the namespace name in the target cluster.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: KryptonDeploymentSpec defines the desired state.
+            properties:
+              account:
+                description: Inline account information for the owner of this deployment.
+                properties:
+                  name:
+                    type: string
+                  displayName:
+                    type: string
+                  owner:
+                    type: string
+                required:
+                - name
+                type: object
+              region:
+                description: Inline region information and kubeconfig selection.
+                nullable: false
+                properties:
+                  name:
+                    description: Name of the region (e.g., logical edge cluster ID).
+                    type: string
+                  kubeconfig:
+                    description: |-
+                      Selection of kubeconfig via secret reference.
+                      This allows operator to connect to target clusters.
+                    properties:
+                      secret:
+                        description: Select a kubeconfig via Secret name/namespace.
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          key:
+                            default: kubeconfig
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                    type: object
+                required:
+                - name
+                - kubeconfig
+                type: object
+            required:
+            - account
+            - region
+            type: object
+          status:
+            description: KryptonDeploymentStatus captures observed state.
+            properties:
+              phase:
+                description: Simple lifecycle state for the deployment.
+                enum:
+                - Pending
+                - Ready
+                - Error
+                type: string
+              observedGeneration:
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+{{- end }}

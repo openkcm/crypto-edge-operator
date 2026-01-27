@@ -13,7 +13,7 @@ spec:
     kubeconfig:
       secret:
         name: kubeconfig
-        namespace: crypto-edge-operator
+        namespace: krypton-operator
 ---
 apiVersion: mesh.openkcm.io/v1alpha1
 kind: KryptonDeployment
@@ -30,4 +30,4 @@ spec:
     kubeconfig:
       secret:
         name: kubeconfig
-        namespace: crypto-edge-operator
+        namespace: krypton-operator

@@ -1,4 +1,4 @@
-# crypto-edge-operator
+# krypton-operator
 
 Experimental multicluster operator prototype.
 
@@ -26,9 +26,9 @@ The multicluster entrypoint (`RunMulticlusterExample`) supports these flags:
 ```
 
 Example run (local):
-# OpenKCM: crypto-edge-operator
+# OpenKCM: krypton-operator
 
-[![REUSE status](https://api.reuse.software/badge/github.com/openkcm/crypto-edge-operator)](https://api.reuse.software/info/github.com/openkcm/crypto-edge-operator)
+[![REUSE status](https://api.reuse.software/badge/github.com/openkcm/krypton-operator)](https://api.reuse.software/info/github.com/openkcm/krypton-operator)
 
 ```bash
 go run ./cmd/multicluster \
@@ -50,10 +50,10 @@ Per-Tenant Helm values are currently disabled; values are an empty map. To intro
 ### Migration From Previous CRD
 
 Older versions used `spec.chart` within the `Tenant` CRD. That field has been removed. Existing Tenant objects with a `chart` key in their spec must be deleted or re-applied without the field after installing the updated CRD:
-This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/openkcm/crypto-edge-operator/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
+This project is open to feature requests/suggestions, bug reports etc. via [GitHub issues](https://github.com/openkcm/krypton-operator/issues). Contribution and feedback are encouraged and always welcome. For more information about how to contribute, the project structure, as well as additional contribution information, see our [Contribution Guidelines](CONTRIBUTING.md).
 
 ## Security / Disclosure
-If you find any bug that may be a security problem, please follow our instructions at [in our security policy](https://github.com/openkcm/crypto-edge-operator/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.
+If you find any bug that may be a security problem, please follow our instructions at [in our security policy](https://github.com/openkcm/krypton-operator/security/policy) on how to report it. Please do not create GitHub issues for security-related doubts or problems.
 
 ```bash
 kubectl delete tenant -A --all    # if safe; or selectively recreate
@@ -70,7 +70,7 @@ Additional env vars for watch cluster selection:
 
 * `WATCH_KUBECONFIG` (or `WATCH_CLUSTER_KUBECONFIG`): file path to the kubeconfig used for the watch/home cluster.
 * `WATCH_CONTEXT`: optional context; defaults to the kubeconfig `current-context`.
-* `ENSURE_WATCH_CRDS`: set to `true` to auto-ensure the CryptoEdgeDeployment CRD on the watch cluster.
+* `ENSURE_WATCH_CRDS`: set to `true` to auto-ensure the KryptonDeployment CRD on the watch cluster.
 * `WATCH_KUBECONFIG_SECRET`: Secret name containing the kubeconfig for the watch cluster.
 * `WATCH_KUBECONFIG_SECRET_NAMESPACE`: Secret namespace (defaults to discovery `--namespace`).
 * `WATCH_KUBECONFIG_SECRET_KEY`: Data key in the Secret (default `kubeconfig`).
@@ -80,7 +80,7 @@ Example (Helm chart): set values to reference a Secret the operator can read:
 ```
 watchCluster:
   secretName: "home-kubeconfig"
-  secretNamespace: "crypto-edge-operator"
+  secretNamespace: "krypton-operator"
   secretKey: "kubeconfig"
   ensureCrds: true
 ```
@@ -304,4 +304,4 @@ kind get kubeconfig --name remote > /tmp/remote.kubeconfig
 ./hack/dev-remote-secret.sh /tmp/remote.kubeconfig cryptoedge-operator acme-remote-kubeconfig
 kubectl apply -f examples/tenant-acme.yaml
 ```
-Copyright (20xx-)20xx SAP SE or an SAP affiliate company and OpenKCM contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/openkcm/crypto-edge-operator).
+Copyright (20xx-)20xx SAP SE or an SAP affiliate company and OpenKCM contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/openkcm/krypton-operator).

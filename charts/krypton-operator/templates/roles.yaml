@@ -86,4 +86,3 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "krypton-operator.serviceAccountName" . }}
     namespace: {{ include "krypton-operator.namespace" . }}
-

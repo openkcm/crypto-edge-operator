@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: crypto-edge-operator
-  namespace: crypto-edge-operator
+  name: krypton-operator
+  namespace: krypton-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: crypto-edge-operator
+      app: krypton-operator
   template:
     metadata:
       labels:
-        app: crypto-edge-operator
+        app: krypton-operator
     spec:
-      serviceAccountName: crypto-edge-operator
+      serviceAccountName: krypton-operator
       containers:
         - name: manager
-          image: crypto-edge-operator:dev
+          image: krypton-operator:dev
           imagePullPolicy: IfNotPresent
           args:
             - --leader-elect=false

@@ -7,17 +7,17 @@ includes:
     excludes: [] # put task names in here which are overwritten in this file
     vars:
       CODE_DIRS: '{{.ROOT_DIR}}/... {{.ROOT_DIR}}/cmd/... {{.ROOT_DIR}}/api/... {{.ROOT_DIR}}/internal/...'
-      COMPONENTS: 'crypto-edge-operator'
-      REPO_URL: 'https://github.com/openkcm/crypto-edge-operator'
-      DOCKER_FILE_IDENTIFIER: crypto-edge-operator
+      COMPONENTS: 'krypton-operator'
+      REPO_URL: 'https://github.com/openkcm/krypton-operator'
+      DOCKER_FILE_IDENTIFIER: krypton-operator
 
 tasks:
   run-watch-secret:
     desc: Run operator using watch kubeconfig from Secret (env-driven)
     env:
       WATCH_KUBECONFIG_SECRET: '{{.WATCH_KUBECONFIG_SECRET}}'
-      WATCH_KUBECONFIG_SECRET_NAMESPACE: '{{.WATCH_KUBECONFIG_SECRET_NAMESPACE | default "crypto-edge-operator"}}'
+      WATCH_KUBECONFIG_SECRET_NAMESPACE: '{{.WATCH_KUBECONFIG_SECRET_NAMESPACE | default "krypton-operator"}}'
       WATCH_KUBECONFIG_SECRET_KEY: '{{.WATCH_KUBECONFIG_SECRET_KEY | default "kubeconfig"}}'
       ENSURE_WATCH_CRDS: '{{.ENSURE_WATCH_CRDS | default "true"}}'
     cmds:
-      - go run ./cmd/crypto-edge-operator -namespace={{.NAMESPACE | default "crypto-edge-operator"}}
+      - go run ./cmd/krypton-operator -namespace={{.NAMESPACE | default "krypton-operator"}}
