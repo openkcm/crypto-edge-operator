@@ -14,7 +14,7 @@ MESH_CLUSTER=mesh
 EDGE_01_CLUSTER=edge01
 EDGE_02_CLUSTER=edge02
 # Operator namespace (where the chart is installed)
-OP_NS=crypto-edge-operator
+OP_NS=krypton-operator
 # Tenant namespace (where Tenant CRs live)
 TENANT_NS=default
 TENANT_NAME_EDGE01=e2e-full-echo-edge01
@@ -24,10 +24,10 @@ CERTM_REPO=https://ealenn.github.io/charts
 CERTM_NAME=echo-server
 CERTM_VERSION=0.5.0
 
-OP_IMAGE=crypto-edge-operator:dev
+OP_IMAGE=krypton-operator:dev
 OP_CHART_PATH=charts/crypto-edge-operator
-OP_RELEASE_NAME=crypto-edge-operator
-OP_CRDS_RELEASE_NAME=crypto-edge-operator-crds
+OP_RELEASE_NAME=krypton-operator
+OP_CRDS_RELEASE_NAME=krypton-operator-crds
 
 log() { printf "[e2e-full] %s\n" "$*"; }
 
@@ -169,10 +169,11 @@ command -v helm >/dev/null 2>&1 || { echo "helm is required"; exit 1; }
 helm --kubeconfig /tmp/home-kind.kubeconfig upgrade -i "$OP_RELEASE_NAME" "$OP_CHART_PATH" \
   --namespace "$OP_NS" \
   --create-namespace \
-  --set image.repository=crypto-edge-operator \
+  --set image.repository=krypton-operator \
   --set image.registry= \
   --set image.tag=dev \
   --set image.pullPolicy=IfNotPresent \
+  --set image.command[0]=/crypto-edge-operator \
   --set installMode.crdsRbacOnly=false \
   --set autoscaling.enabled=false \
   --set discovery.namespace=$OP_NS \
@@ -210,7 +211,7 @@ log "determine operator deployment name"
 DEP_NAME="$OP_RELEASE_NAME"
 # Fallback: discover by label if name differs from release
 if ! kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get deploy "$DEP_NAME" >/dev/null 2>&1; then
-  DEP_NAME=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get deploy -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+  DEP_NAME=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get deploy -l app.kubernetes.io/name=krypton-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 fi
 if [ -z "$DEP_NAME" ]; then
   log "could not determine operator deployment name"
@@ -227,7 +228,7 @@ if ! kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" rollout status d
   kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" describe deploy "$DEP_NAME" || true
   kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get events --sort-by=.lastTimestamp || true
   # Dump first pod logs if present
-  POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+  POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app.kubernetes.io/name=krypton-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
   if [ -n "$POD" ]; then
     kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" logs "$POD" --tail=200 || true
   fi
@@ -297,7 +298,7 @@ for name in ${TENANT_NAMES_EDGE01[@]}; do
       log "edge01 deployment $name not Ready"
       kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get kryptondeployment "$name" -n "$TENANT_NS" -o yaml || true
       log "collecting operator diagnostics from home cluster"
-      OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+      OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app.kubernetes.io/name=krypton-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
       if [ -n "$OP_POD" ]; then
         kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" logs "$OP_POD" --tail=400 || true
       else

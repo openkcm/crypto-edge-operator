@@ -1,4 +1,4 @@
-# Default values for crypto-edge-operator.
+# Default values for krypton-operator.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
@@ -24,11 +24,11 @@ replicaCount: 1
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
   registry: ghcr.io/openkcm
-  repository: images/crypto-edge-operator
+  repository: images/krypton-operator
   tag: "v0.2.0" # defaults to Chart.appVersion if empty
   digest: "" # optional sha256 digest overrides tag
   pullPolicy: IfNotPresent
-  command: ["/crypto-edge-operator"]
+  command: ["/krypton-operator"]
   # Args populated from central chart & discovery values below. Override to customize.
   args: []
 
@@ -190,7 +190,7 @@ chart:
 
 # Discovery / kubeconfig secret settings.
 discovery:
-  namespace: "crypto-edge-operator"  # namespace containing kubeconfig secrets; flag -namespace
+  namespace: "krypton-operator"  # namespace containing kubeconfig secrets; flag -namespace
   # kubeconfigLabel: deprecated (no longer used)
   # kubeconfigKey: deprecated (no longer used)
 

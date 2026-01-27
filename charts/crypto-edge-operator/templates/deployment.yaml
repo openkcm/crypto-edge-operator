@@ -3,15 +3,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "crypto-edge-operator.fullname" . }}
-  namespace: {{ include "crypto-edge-operator.namespace" . }}
+  name: {{ include "krypton-operator.fullname" . }}
+  namespace: {{ include "krypton-operator.namespace" . }}
   labels:
-    {{- include "crypto-edge-operator.labels" . | nindent 4 }}
+    {{- include "krypton-operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "crypto-edge-operator.selectorLabels" . | nindent 6 }}
+      {{- include "krypton-operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -19,7 +19,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "crypto-edge-operator.labels" . | nindent 8 }}
+        {{- include "krypton-operator.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -28,7 +28,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "crypto-edge-operator.serviceAccountName" . }}
+      serviceAccountName: {{ include "krypton-operator.serviceAccountName" . }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -41,12 +41,12 @@ spec:
         {{- with .Values.extraContainers }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        - name: {{ include "crypto-edge-operator.name" . }}
+        - name: {{ include "krypton-operator.name" . }}
           {{- with .Values.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          image: "{{ template "crypto-edge-operator.image" (tuple .Values.image $.Chart.AppVersion) }}"
+          image: "{{ template "krypton-operator.image" (tuple .Values.image $.Chart.AppVersion) }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.image.command }}
           command:
@@ -120,8 +120,8 @@ spec:
             {{- end }}
       {{- with .Values.extraVolumes }}
       volumes:
-          {{- toYaml . | nindent 8 }}
-        {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

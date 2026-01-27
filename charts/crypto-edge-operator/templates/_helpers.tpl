@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "crypto-edge-operator.name" -}}
+{{- define "krypton-operator.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "crypto-edge-operator.fullname" -}}
+{{- define "krypton-operator.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -31,23 +31,23 @@ By default this is not set so the helm release namespace will be used
 This gets around an problem within helm discussed here
 https://github.com/helm/helm/issues/5358
 */}}
-{{- define "crypto-edge-operator.namespace" -}}
+{{- define "krypton-operator.namespace" -}}
     {{ .Values.namespace | default .Release.Namespace }}
 {{- end -}}
 
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "crypto-edge-operator.chart" -}}
+{{- define "krypton-operator.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "crypto-edge-operator.labels" -}}
-helm.sh/chart: {{ include "crypto-edge-operator.chart" . }}
-{{ include "crypto-edge-operator.selectorLabels" . }}
+{{- define "krypton-operator.labels" -}}
+helm.sh/chart: {{ include "krypton-operator.chart" . }}
+{{ include "krypton-operator.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -57,8 +57,8 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "crypto-edge-operator.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "crypto-edge-operator.name" . }}
+{{- define "krypton-operator.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "krypton-operator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/component: {{ .Chart.Name }}
 {{- end }}
@@ -66,9 +66,9 @@ app.kubernetes.io/component: {{ .Chart.Name }}
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "crypto-edge-operator.serviceAccountName" -}}
+{{- define "krypton-operator.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "crypto-edge-operator.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "krypton-operator.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -77,7 +77,7 @@ Create the name of the service account to use
 {{/*
 Util function for generating the image URL based on the provided options.
 */}}
-{{- define "crypto-edge-operator.image" -}}
+{{- define "krypton-operator.image" -}}
 {{- $defaultTag := index . 1 -}}
 {{- with index . 0 -}}
 {{- if .registry -}}{{ printf "%s/%s" .registry .repository }}{{- else -}}{{- .repository -}}{{- end -}}
