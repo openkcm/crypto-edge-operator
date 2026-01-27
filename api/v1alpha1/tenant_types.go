@@ -42,10 +42,10 @@ type TenantStatus struct {
 // Tenant is the Schema for the tenants API.
 type Tenant struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"` //nolint:modernize
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   TenantSpec   `json:"spec,omitempty"`   //nolint:modernize
-	Status TenantStatus `json:"status,omitempty"` //nolint:modernize
+	Spec   TenantSpec   `json:"spec,omitempty"`
+	Status TenantStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -53,7 +53,7 @@ type Tenant struct {
 // TenantList contains a list of Tenant.
 type TenantList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"` //nolint:modernize
+	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []Tenant `json:"items"`
 }

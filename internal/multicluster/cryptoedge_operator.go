@@ -45,34 +45,29 @@ func RunCryptoEdgeOperator() {
 	var namespace string
 	var kubeconfigSecretLabel string
 	var kubeconfigSecretKey string
-	var chartRepo string
-	var chartName string
-	var chartVersion string
 	var watchKubeconfig string
 	var watchContext string
 	var ensureWatchCRDs bool
 	var watchKubeconfigSecretName string
 	var watchKubeconfigSecretNamespace string
 	var watchKubeconfigSecretKey string
-
-	flag.StringVar(&namespace, "namespace", "default", "Namespace where kubeconfig secrets and CRDs are stored")
-	flag.StringVar(&kubeconfigSecretLabel, "kubeconfig-label", "sigs.k8s.io/multicluster-runtime-kubeconfig", "Label for kubeconfig secrets (override with KUBECONFIG_SECRET_LABEL)")
-	flag.StringVar(&kubeconfigSecretKey, "kubeconfig-key", "kubeconfig", "Key in secret containing kubeconfig data (override with KUBECONFIG_SECRET_KEY)")
-	flag.StringVar(&chartRepo, "chart-repo", "https://ealenn.github.io/charts", "Helm chart repository URL")
-	flag.StringVar(&chartName, "chart-name", "echo-server", "Helm chart name")
-	flag.StringVar(&chartVersion, "chart-version", "0.5.0", "Helm chart version")
-	flag.StringVar(&watchKubeconfig, "watch-kubeconfig", "", "Path to kubeconfig for the watch (home) cluster; overrides in-cluster or default KUBECONFIG (deprecated if secret flags are set)")
-	flag.StringVar(&watchContext, "watch-context", "", "Optional kubeconfig context name for the watch cluster (applies to file or secret kubeconfig)")
-	flag.BoolVar(&ensureWatchCRDs, "ensure-watch-crds", false, "When true, ensure required CRDs exist on the watch cluster at startup")
-	flag.StringVar(&watchKubeconfigSecretName, "watch-kubeconfig-secret", "", "Name of Secret containing kubeconfig for the watch cluster (preferred over file)")
-	flag.StringVar(&watchKubeconfigSecretNamespace, "watch-kubeconfig-secret-namespace", "", "Namespace of Secret containing kubeconfig for the watch cluster (defaults to -namespace if empty)")
-	flag.StringVar(&watchKubeconfigSecretKey, "watch-kubeconfig-secret-key", "kubeconfig", "Data key in Secret containing kubeconfig bytes")
-
+	var chartRepo string
+	var chartName string
+	var chartVersion string
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
+	flag.StringVar(&namespace, "namespace", namespace, "Namespace containing kubeconfig secrets")
+	flag.StringVar(&watchContext, "watch-context", watchContext, "Kubeconfig context name for the watch cluster")
+	flag.BoolVar(&ensureWatchCRDs, "ensure-watch-crds", ensureWatchCRDs, "Ensure required CRDs exist on the watch cluster at startup")
+	flag.StringVar(&watchKubeconfigSecretName, "watch-kubeconfig-secret", watchKubeconfigSecretName, "Name of Secret containing kubeconfig for the watch cluster")
+	flag.StringVar(&watchKubeconfigSecretNamespace, "watch-kubeconfig-secret-namespace", watchKubeconfigSecretNamespace, "Namespace of Secret containing kubeconfig for the watch cluster")
+	flag.StringVar(&watchKubeconfigSecretKey, "watch-kubeconfig-secret-key", "kubeconfig", "Data key in the Secret containing kubeconfig bytes")
+	flag.StringVar(&chartRepo, "chart-repo", "https://charts.jetstack.io", "Central Helm chart repository URL")
+	flag.StringVar(&chartName, "chart-name", "cert-manager", "Central Helm chart name")
+	flag.StringVar(&chartVersion, "chart-version", "1.19.1", "Central Helm chart version")
 	flag.Parse()
 
-	// Environment fallbacks for namespace/secret settings
+	// Environment fallbacks
 	if ns := os.Getenv("WATCH_NAMESPACE"); ns != "" {
 		namespace = ns
 	} else if ns := os.Getenv("POD_NAMESPACE"); ns != "" {
@@ -88,7 +83,6 @@ func RunCryptoEdgeOperator() {
 	if key := os.Getenv("KUBECONFIG_SECRET_KEY"); key != "" {
 		kubeconfigSecretKey = key
 	}
-	// Watch cluster config via env overrides
 	if v := os.Getenv("WATCH_KUBECONFIG"); v != "" {
 		watchKubeconfig = v
 	} else if v := os.Getenv("WATCH_CLUSTER_KUBECONFIG"); v != "" { // alias
@@ -113,7 +107,60 @@ func RunCryptoEdgeOperator() {
 		watchKubeconfigSecretNamespace = namespace
 	}
 
-	// Setup Helm environment
+	setupHelmEnv()
+
+	ctrllog.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	entryLog := ctrllog.Log.WithName("cryptoedge-operator")
+	ctx := ctrl.SetupSignalHandler()
+
+	entryLog.Info("Starting CryptoEdge operator", "namespace", namespace, "chart", fmt.Sprintf("%s/%s:%s", chartRepo, chartName, chartVersion))
+	entryLog.Info("Kubeconfig provider config", "namespace", namespace, "secretLabel", kubeconfigSecretLabel, "secretKey", kubeconfigSecretKey)
+
+	watchCfg, watchHost, watchCtxUsed, err := buildWatchConfig(ctx, watchKubeconfig, watchContext, watchKubeconfigSecretNamespace, watchKubeconfigSecretName, watchKubeconfigSecretKey)
+	if err != nil {
+		entryLog.Error(err, "Failed to build watch cluster config")
+		os.Exit(1)
+	}
+	entryLog.Info("Watch cluster configured", "host", watchHost, "kubeconfig", truncatePath(watchKubeconfig), "context", watchCtxUsed)
+
+	homeScheme, edgeScheme, providerScheme := buildSchemes()
+
+	homeMgr, err := createHomeManager(watchCfg, homeScheme)
+	if err != nil {
+		entryLog.Error(err, "Unable to create home manager")
+		os.Exit(1)
+	}
+
+	provider := secretprovider.New(homeMgr.GetClient(), edgeScheme, namespace)
+
+	mgr, err := createMCManager(watchCfg, provider, providerScheme)
+	if err != nil {
+		entryLog.Error(err, "Unable to create manager")
+		os.Exit(1)
+	}
+
+	if err := setupProviderAndHealth(ctx, mgr, provider); err != nil {
+		entryLog.Error(err, "Unable to setup provider/health")
+		os.Exit(1)
+	}
+
+	if err := ensureWatchCRDsIfRequested(ctx, watchCfg, homeScheme, ensureWatchCRDs); err != nil {
+		entryLog.Error(err, "Ensure watch CRDs failed")
+		os.Exit(1)
+	}
+
+	if err := registerHomeController(homeMgr, mgr, namespace, chartRepo, chartName, chartVersion); err != nil {
+		entryLog.Error(err, "Unable to create home controller")
+		os.Exit(1)
+	}
+
+	entryLog.Info("Starting managers")
+	if err := startManagers(ctx, entryLog, homeMgr, mgr); err != nil {
+		entryLog.Error(err, "Managers exited with error")
+		os.Exit(1)
+	}
+}
+func setupHelmEnv() {
 	if os.Getenv("HELM_REPOSITORY_CONFIG") == "" {
 		os.Setenv("HELM_REPOSITORY_CONFIG", "/.config/helm/repositories.yaml")
 	}
@@ -126,95 +173,70 @@ func RunCryptoEdgeOperator() {
 	if os.Getenv("HELM_DRIVER") == "" {
 		os.Setenv("HELM_DRIVER", "secret")
 	}
+}
 
-	ctrllog.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-	entryLog := ctrllog.Log.WithName("cryptoedge-operator")
-	ctx := ctrl.SetupSignalHandler()
-
-	entryLog.Info("Starting CryptoEdge operator", "namespace", namespace, "chart", fmt.Sprintf("%s/%s:%s", chartRepo, chartName, chartVersion))
-	entryLog.Info("Kubeconfig provider config", "namespace", namespace, "secretLabel", kubeconfigSecretLabel, "secretKey", kubeconfigSecretKey)
-
-	// Build watch cluster rest.Config (home cluster for CRDs & CryptoEdgeDeployment watcher)
-	watchCfg, watchHost, watchCtxUsed, err := buildWatchConfig(ctx, watchKubeconfig, watchContext, watchKubeconfigSecretNamespace, watchKubeconfigSecretName, watchKubeconfigSecretKey)
-	if err != nil {
-		entryLog.Error(err, "Failed to build watch cluster config")
-		os.Exit(1)
-	}
-	entryLog.Info("Watch cluster configured", "host", watchHost, "kubeconfig", truncatePath(watchKubeconfig), "context", watchCtxUsed)
-
-	// Create scheme for home cluster (includes platform CRDs)
+func buildSchemes() (*runtime.Scheme, *runtime.Scheme, *runtime.Scheme) {
 	homeScheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(homeScheme)
 	_ = platformv1alpha1.AddToScheme(homeScheme)
 
-	// Create scheme for edge clusters (include platform CRDs so they don't error, but we won't actually use them)
 	edgeScheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(edgeScheme)
 	_ = platformv1alpha1.AddToScheme(edgeScheme)
 
-	// Controller on home cluster using standard controller-runtime manager
-	homeMgr, err := ctrl.NewManager(watchCfg, ctrl.Options{
-		Scheme:                 homeScheme,
+	providerScheme := runtime.NewScheme()
+	_ = clientgoscheme.AddToScheme(providerScheme)
+	_ = platformv1alpha1.AddToScheme(providerScheme)
+	return homeScheme, edgeScheme, providerScheme
+}
+
+func createHomeManager(cfg *rest.Config, scheme *runtime.Scheme) (ctrl.Manager, error) {
+	return ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:                 scheme,
 		Metrics:                metricsserver.Options{BindAddress: "0"},
 		HealthProbeBindAddress: "",
 	})
-	if err != nil {
-		entryLog.Error(err, "Unable to create home manager")
-		os.Exit(1)
-	}
+}
 
-	// Setup kubeconfig provider for multicluster
-	// Use minimal scheme for provider so edge clusters don't try to list platform CRDs
-	providerScheme := runtime.NewScheme()
-	_ = clientgoscheme.AddToScheme(providerScheme)
-	// Add platform CRDs to the scheme so manager can read them, but edge clusters won't have them
-	_ = platformv1alpha1.AddToScheme(providerScheme)
-
-	// Use custom secret provider that reads kubeconfig from any namespace on-demand.
-	provider := secretprovider.New(homeMgr.GetClient(), edgeScheme, namespace)
-
-	// Create multicluster manager with scheme that includes platform CRDs
+func createMCManager(cfg *rest.Config, provider *secretprovider.Provider, scheme *runtime.Scheme) (mcmanager.Manager, error) {
 	managerOpts := mcmanager.Options{
 		Metrics:                metricsserver.Options{BindAddress: ":8080"},
-		Scheme:                 providerScheme,
+		Scheme:                 scheme,
 		HealthProbeBindAddress: ":8081",
-		WebhookServer:          webhook.NewServer(webhook.Options{Port: 0}), // Disable webhooks
+		WebhookServer:          webhook.NewServer(webhook.Options{Port: 0}),
 	}
-	mgr, err := mcmanager.New(watchCfg, provider, managerOpts)
-	if err != nil {
-		entryLog.Error(err, "Unable to create manager")
-		os.Exit(1)
-	}
-	// Optionally ensure CRDs exist on the watch cluster (e.g., CryptoEdgeDeployment)
-	if ensureWatchCRDs {
-		cl, cerr := client.New(watchCfg, client.Options{Scheme: homeScheme})
-		if cerr != nil {
-			entryLog.Error(cerr, "Unable to construct client for CRD ensure")
-			os.Exit(1)
-		}
-		if err := EnsureCryptoEdgeDeploymentCRD(ctx, cl); err != nil {
-			entryLog.Error(err, "Ensure watch CRDs failed")
-			os.Exit(1)
-		}
-		entryLog.Info("Ensured watch CRDs present")
-	}
+	return mcmanager.New(cfg, provider, managerOpts)
+}
 
+func setupProviderAndHealth(ctx context.Context, mgr mcmanager.Manager, provider *secretprovider.Provider) error {
 	if err := provider.SetupWithManager(ctx, mgr); err != nil {
-		entryLog.Error(err, "Unable to setup provider")
-		os.Exit(1)
+		return err
 	}
-
-	// Add health checks (use a simple ping check instead of webhook server)
 	if err := mgr.AddHealthzCheck("healthz", func(_ *http.Request) error { return nil }); err != nil {
-		entryLog.Error(err, "Unable to set up health check")
-		os.Exit(1)
+		return err
 	}
 	if err := mgr.AddReadyzCheck("readyz", func(_ *http.Request) error { return nil }); err != nil {
-		entryLog.Error(err, "Unable to set up ready check")
-		os.Exit(1)
+		return err
 	}
+	return nil
+}
 
-	if err := ctrl.NewControllerManagedBy(homeMgr).
+func ensureWatchCRDsIfRequested(ctx context.Context, cfg *rest.Config, scheme *runtime.Scheme, ensure bool) error {
+	if !ensure {
+		return nil
+	}
+	cl, err := client.New(cfg, client.Options{Scheme: scheme})
+	if err != nil {
+		return err
+	}
+	if err := EnsureCryptoEdgeDeploymentCRD(ctx, cl); err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerHomeController(homeMgr ctrl.Manager, mgr mcmanager.Manager, namespace, chartRepo, chartName, chartVersion string) error {
+	return ctrl.NewControllerManagedBy(homeMgr).
 		Named("cryptoedgedeployments-home").
 		For(&platformv1alpha1.CryptoEdgeDeployment{}).
 		Complete(reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -222,21 +244,19 @@ func RunCryptoEdgeOperator() {
 			log.Info("reconcile start")
 			recorder := homeMgr.GetEventRecorderFor("cryptoedge-operator")
 			return reconcileCED(ctx, log, homeMgr, mgr, namespace, chartRepo, chartName, chartVersion, recorder, req)
-		})); err != nil {
-		entryLog.Error(err, "Unable to create home controller")
-		os.Exit(1)
-	}
+		}))
+}
 
-	entryLog.Info("Starting managers")
-	go func() {
-		if err := homeMgr.Start(ctx); err != nil {
-			entryLog.Error(err, "Home manager exited with error")
+func startManagers(ctx context.Context, entryLog logr.Logger, homeMgr ctrl.Manager, mgr mcmanager.Manager) error {
+	done := make(chan error, 2)
+	go func() { done <- homeMgr.Start(ctx) }()
+	go func() { done <- mgr.Start(ctx) }()
+	for range 2 {
+		if err := <-done; err != nil {
+			return err
 		}
-	}()
-	if err := mgr.Start(ctx); err != nil {
-		entryLog.Error(err, "Manager exited with error")
-		os.Exit(1)
 	}
+	return nil
 }
 
 // buildWatchConfig returns a rest.Config for the watch/home cluster, the host it targets, the effective context used, and error.
@@ -309,6 +329,8 @@ func truncatePath(p string) string {
 	}
 	return p
 }
+
+// (duplicate block removed)
 
 func reconcileCED(
 	ctx context.Context,

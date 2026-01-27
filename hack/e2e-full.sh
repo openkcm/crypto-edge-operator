@@ -37,6 +37,11 @@ cleanup() {
   [ "$CLEANED_UP" -eq 1 ] && return
   CLEANED_UP=1
 
+  if [ "${SKIP_CLEANUP:-0}" = "1" ]; then
+    log "SKIP_CLEANUP=1 set; skipping kind cluster teardown"
+    return
+  fi
+
   log "tearing down kind clusters"
   # Delete with timeout when available to avoid hanging
   if command -v timeout >/dev/null 2>&1; then
@@ -288,7 +293,23 @@ for name in ${TENANT_NAMES_EDGE01[@]}; do
     PHASE=$(kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
     [ "$PHASE" = "Ready" ] && break
     sleep 3
-    [ $i -eq 200 ] && { log "edge01 deployment $name not Ready"; kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml; exit 1; }
+    if [ $i -eq 200 ]; then
+      log "edge01 deployment $name not Ready"
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml || true
+      log "collecting operator diagnostics from home cluster"
+      OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+      if [ -n "$OP_POD" ]; then
+        kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" logs "$OP_POD" --tail=400 || true
+      else
+        kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -o wide || true
+      fi
+      log "collecting mesh events"
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig -n "$OP_NS" get events --sort-by=.lastTimestamp || true
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig -n "$TENANT_NS" get events --sort-by=.lastTimestamp || true
+      log "collecting edge01 namespace diagnostics"
+      kubectl --kubeconfig /tmp/edge01-kind.kubeconfig -n "$name" get all -o wide || true
+      exit 1
+    fi
   done
   log "edge01 deployment $name Ready"
 done
@@ -299,7 +320,23 @@ for name in ${TENANT_NAMES_EDGE02[@]}; do
     PHASE=$(kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
     [ "$PHASE" = "Ready" ] && break
     sleep 3
-    [ $i -eq 200 ] && { log "edge02 deployment $name not Ready"; kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml; exit 1; }
+    if [ $i -eq 200 ]; then
+      log "edge02 deployment $name not Ready"
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml || true
+      log "collecting operator diagnostics from home cluster"
+      OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+      if [ -n "$OP_POD" ]; then
+        kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" logs "$OP_POD" --tail=400 || true
+      else
+        kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -o wide || true
+      fi
+      log "collecting mesh events"
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig -n "$OP_NS" get events --sort-by=.lastTimestamp || true
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig -n "$TENANT_NS" get events --sort-by=.lastTimestamp || true
+      log "collecting edge02 namespace diagnostics"
+      kubectl --kubeconfig /tmp/edge02-kind.kubeconfig -n "$name" get all -o wide || true
+      exit 1
+    fi
   done
   log "edge02 deployment $name Ready"
 done
