@@ -173,6 +173,7 @@ helm --kubeconfig /tmp/home-kind.kubeconfig upgrade -i "$OP_RELEASE_NAME" "$OP_C
   --set image.registry= \
   --set image.tag=dev \
   --set image.pullPolicy=IfNotPresent \
+  --set image.command[0]=/crypto-edge-operator \
   --set installMode.crdsRbacOnly=false \
   --set autoscaling.enabled=false \
   --set discovery.namespace=$OP_NS \
