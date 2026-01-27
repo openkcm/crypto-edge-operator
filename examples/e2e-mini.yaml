@@ -1,5 +1,5 @@
 apiVersion: mesh.openkcm.io/v1alpha1
-kind: CryptoEdgeDeployment
+kind: KryptonDeployment
 metadata:
   name: demo-edge01
   namespace: default
@@ -16,7 +16,7 @@ spec:
         namespace: crypto-edge-operator
 ---
 apiVersion: mesh.openkcm.io/v1alpha1
-kind: CryptoEdgeDeployment
+kind: KryptonDeployment
 metadata:
   name: demo-edge02
   namespace: default

@@ -22,7 +22,7 @@ var (
 
 func init() { // Register API types
 	SchemeBuilder.Register(
-		&CryptoEdgeDeployment{}, &CryptoEdgeDeploymentList{},
+		&KryptonDeployment{}, &KryptonDeploymentList{},
 		&Tenant{}, &TenantList{}, // Keep for backwards compatibility
 	)
 }

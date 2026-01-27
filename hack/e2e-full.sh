@@ -237,7 +237,7 @@ log "operator ready"
 
 log "skip creating Account/Region CRs; using inline spec fields"
 
-log "apply 3 CryptoEdgeDeployments per region to mesh cluster"
+log "apply 3 KryptonDeployments per region to mesh cluster"
 # Create three deployments for edge01 and edge02
 TENANT_NAMES_EDGE01=()
 TENANT_NAMES_EDGE02=()
@@ -249,7 +249,7 @@ for s in ${TENANT_SUFFIXES[@]}; do
   # Edge01
   kubectl --kubeconfig /tmp/mesh-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
 apiVersion: mesh.openkcm.io/v1alpha1
-kind: CryptoEdgeDeployment
+kind: KryptonDeployment
 metadata:
   name: ${NAME_EDGE01}
   namespace: ${TENANT_NS}
@@ -268,7 +268,7 @@ EOF
   # Edge02
   kubectl --kubeconfig /tmp/mesh-kind.kubeconfig apply -n "$TENANT_NS" -f - <<EOF
 apiVersion: mesh.openkcm.io/v1alpha1
-kind: CryptoEdgeDeployment
+kind: KryptonDeployment
 metadata:
   name: ${NAME_EDGE02}
   namespace: ${TENANT_NS}
@@ -286,16 +286,16 @@ spec:
 EOF
 done
 
-log "wait for all CryptoEdgeDeployments Ready on mesh cluster (timeout 10m each)"
+log "wait for all KryptonDeployments Ready on mesh cluster (timeout 10m each)"
 # Edge01
 for name in ${TENANT_NAMES_EDGE01[@]}; do
   for i in {1..200}; do
-    PHASE=$(kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    PHASE=$(kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get kryptondeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
     [ "$PHASE" = "Ready" ] && break
     sleep 3
     if [ $i -eq 200 ]; then
       log "edge01 deployment $name not Ready"
-      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml || true
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get kryptondeployment "$name" -n "$TENANT_NS" -o yaml || true
       log "collecting operator diagnostics from home cluster"
       OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
       if [ -n "$OP_POD" ]; then
@@ -317,12 +317,12 @@ done
 # Edge02
 for name in ${TENANT_NAMES_EDGE02[@]}; do
   for i in {1..200}; do
-    PHASE=$(kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    PHASE=$(kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get kryptondeployment "$name" -n "$TENANT_NS" -o jsonpath='{.status.phase}' 2>/dev/null || true)
     [ "$PHASE" = "Ready" ] && break
     sleep 3
     if [ $i -eq 200 ]; then
       log "edge02 deployment $name not Ready"
-      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get cryptoedgedeployment "$name" -n "$TENANT_NS" -o yaml || true
+      kubectl --kubeconfig /tmp/mesh-kind.kubeconfig get kryptondeployment "$name" -n "$TENANT_NS" -o yaml || true
       log "collecting operator diagnostics from home cluster"
       OP_POD=$(kubectl --kubeconfig /tmp/home-kind.kubeconfig -n "$OP_NS" get pods -l app=crypto-edge-operator -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
       if [ -n "$OP_POD" ]; then
@@ -358,12 +358,12 @@ for name in ${TENANT_NAMES_EDGE02[@]}; do
 done
 log "edge02 workloads present in target namespaces"
 
-log "delete all CryptoEdgeDeployments on mesh cluster"
+log "delete all KryptonDeployments on mesh cluster"
 for name in ${TENANT_NAMES_EDGE01[@]}; do
-  kubectl --kubeconfig /tmp/mesh-kind.kubeconfig delete cryptoedgedeployment "$name" -n "$TENANT_NS"
+  kubectl --kubeconfig /tmp/mesh-kind.kubeconfig delete kryptondeployment "$name" -n "$TENANT_NS"
 done
 for name in ${TENANT_NAMES_EDGE02[@]}; do
-  kubectl --kubeconfig /tmp/mesh-kind.kubeconfig delete cryptoedgedeployment "$name" -n "$TENANT_NS"
+  kubectl --kubeconfig /tmp/mesh-kind.kubeconfig delete kryptondeployment "$name" -n "$TENANT_NS"
 done
 
 log "wait for namespace deletion on edge clusters"

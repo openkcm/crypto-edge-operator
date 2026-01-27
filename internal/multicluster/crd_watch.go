@@ -16,16 +16,16 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// Embed the CryptoEdgeDeployment CRD manifest for optional apply to the watch cluster.
+// Embed the KryptonDeployment CRD manifest for optional apply to the watch cluster.
 //
-//go:embed mesh.openkcm.io_cryptoedgedeployments.yaml
-var cryptoEdgeDeploymentCRDYAML []byte
+//go:embed mesh.openkcm.io_kryptondeployments.yaml
+var kryptonDeploymentCRDYAML []byte
 
 var decUnstructuredWatch = yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 
-// EnsureCryptoEdgeDeploymentCRD applies the CRD into the target (watch) cluster if it is not present.
-func EnsureCryptoEdgeDeploymentCRD(ctx context.Context, c client.Client) error {
-	crdName := "cryptoedgedeployments.mesh.openkcm.io"
+// EnsureKryptonDeploymentCRD applies the CRD into the target (watch) cluster if it is not present.
+func EnsureKryptonDeploymentCRD(ctx context.Context, c client.Client) error {
+	crdName := "kryptondeployments.mesh.openkcm.io"
 	crd := &unstructured.Unstructured{}
 	crd.SetAPIVersion("apiextensions.k8s.io/v1")
 	crd.SetKind("CustomResourceDefinition")
@@ -49,7 +49,7 @@ func EnsureCryptoEdgeDeploymentCRD(ctx context.Context, c client.Client) error {
 		}
 		// NotFound: proceed to create from embedded YAML.
 		obj := &unstructured.Unstructured{}
-		_, gvk, decErr := decUnstructuredWatch.Decode(cryptoEdgeDeploymentCRDYAML, nil, obj)
+		_, gvk, decErr := decUnstructuredWatch.Decode(kryptonDeploymentCRDYAML, nil, obj)
 		if decErr != nil {
 			return fmt.Errorf("decode embedded CRD failed: %w", decErr)
 		}

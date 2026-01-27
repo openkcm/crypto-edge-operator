@@ -1,4 +1,4 @@
-module github.com/openkcm/crypto-edge-operator
+module github.com/openkcm/krypton-operator
 
 go 1.25.4
 

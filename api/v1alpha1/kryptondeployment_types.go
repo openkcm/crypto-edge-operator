@@ -1,5 +1,3 @@
-//go:build ignore_ced_types
-
 package v1alpha1
 
 import (
@@ -8,13 +6,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CryptoEdgeDeploymentPhase enumerates simple lifecycle states.
-type CryptoEdgeDeploymentPhase string
+// KryptonDeploymentPhase enumerates simple lifecycle states.
+type KryptonDeploymentPhase string
 
 const (
-	CryptoEdgeDeploymentPhasePending CryptoEdgeDeploymentPhase = "Pending"
-	CryptoEdgeDeploymentPhaseReady   CryptoEdgeDeploymentPhase = "Ready"
-	CryptoEdgeDeploymentPhaseError   CryptoEdgeDeploymentPhase = "Error"
+	KryptonDeploymentPhasePending KryptonDeploymentPhase = "Pending"
+	KryptonDeploymentPhaseReady   KryptonDeploymentPhase = "Ready"
+	KryptonDeploymentPhaseError   KryptonDeploymentPhase = "Error"
 )
 
 // AccountInfo contains inline information about the owning account.
@@ -28,8 +26,8 @@ type AccountInfo struct {
 	Owner string `json:"owner,omitempty" yaml:"owner,omitempty"`
 }
 
-// CryptoEdgeDeploymentSpec defines the desired state.
-type CryptoEdgeDeploymentSpec struct {
+// KryptonDeploymentSpec defines the desired state.
+type KryptonDeploymentSpec struct {
 	// Account contains inline information about the owner of this deployment.
 	// Replaces the external Account CRD reference.
 	Account AccountInfo `json:"account" yaml:"account"`
@@ -65,40 +63,40 @@ type SecretRef struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
-// CryptoEdgeDeploymentStatus captures observed state.
-type CryptoEdgeDeploymentStatus struct {
-	Phase            CryptoEdgeDeploymentPhase `json:"phase,omitempty" yaml:"phase,omitempty"`
-	LastMessage      string                    `json:"lastMessage,omitempty" yaml:"lastMessage,omitempty"`
-	Conditions       []metav1.Condition        `json:"conditions,omitempty" yaml:"conditions,omitempty"`
-	LastAppliedChart string                    `json:"lastAppliedChart,omitempty" yaml:"lastAppliedChart,omitempty"`
+// KryptonDeploymentStatus captures observed state.
+type KryptonDeploymentStatus struct {
+	Phase            KryptonDeploymentPhase `json:"phase,omitempty" yaml:"phase,omitempty"`
+	LastMessage      string                 `json:"lastMessage,omitempty" yaml:"lastMessage,omitempty"`
+	Conditions       []metav1.Condition     `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	LastAppliedChart string                 `json:"lastAppliedChart,omitempty" yaml:"lastAppliedChart,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=cryptoedgedeployments,scope=Namespaced,shortName=ced
+// +kubebuilder:resource:path=kryptondeployments,scope=Namespaced,shortName=kd
 
-// CryptoEdgeDeployment is the Schema for the cryptoedgedeployments API.
-// The name of the CryptoEdgeDeployment is used as the namespace name in the target cluster.
-type CryptoEdgeDeployment struct {
+// KryptonDeployment is the Schema for the kryptondeployments API.
+// The name of the KryptonDeployment is used as the namespace name in the target cluster.
+type KryptonDeployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   CryptoEdgeDeploymentSpec   `json:"spec"`
-	Status CryptoEdgeDeploymentStatus `json:"status"`
+	Spec   KryptonDeploymentSpec   `json:"spec"`
+	Status KryptonDeploymentStatus `json:"status"`
 }
 
 // +kubebuilder:object:root=true
 
-// CryptoEdgeDeploymentList contains a list of CryptoEdgeDeployment.
-type CryptoEdgeDeploymentList struct {
+// KryptonDeploymentList contains a list of KryptonDeployment.
+type KryptonDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []CryptoEdgeDeployment `json:"items"`
+	Items []KryptonDeployment `json:"items"`
 }
 
-// GetObjectKind returns the ObjectKind for CryptoEdgeDeployment.
-func (c *CryptoEdgeDeployment) GetObjectKind() schema.ObjectKind { return &c.TypeMeta }
+// GetObjectKind returns the ObjectKind for KryptonDeployment.
+func (c *KryptonDeployment) GetObjectKind() schema.ObjectKind { return &c.TypeMeta }
 
-// GetObjectKind returns the ObjectKind for CryptoEdgeDeploymentList.
-func (cl *CryptoEdgeDeploymentList) GetObjectKind() schema.ObjectKind { return &cl.TypeMeta }
+// GetObjectKind returns the ObjectKind for KryptonDeploymentList.
+func (cl *KryptonDeploymentList) GetObjectKind() schema.ObjectKind { return &cl.TypeMeta }

@@ -4,24 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.3
-  name: cryptoedgedeployments.mesh.openkcm.io
+  name: kryptondeployments.mesh.openkcm.io
 spec:
   group: mesh.openkcm.io
   names:
-    kind: CryptoEdgeDeployment
-    listKind: CryptoEdgeDeploymentList
-    plural: cryptoedgedeployments
+    kind: KryptonDeployment
+    listKind: KryptonDeploymentList
+    plural: kryptondeployments
     shortNames:
     - ced
-    singular: cryptoedgedeployment
+    singular: kryptondeployment
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
         description: |-
-          CryptoEdgeDeployment is the Schema for the cryptoedgedeployments API.
-          The name of the CryptoEdgeDeployment is used as the namespace name in the target cluster.
+          KryptonDeployment is the Schema for the kryptondeployments API.
+          The name of the KryptonDeployment is used as the namespace name in the target cluster.
         properties:
           apiVersion:
             description: |-
@@ -41,7 +41,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: CryptoEdgeDeploymentSpec defines the desired state.
+            description: KryptonDeploymentSpec defines the desired state.
             properties:
               account:
                 description: Inline account information for the owner of this deployment.
@@ -82,7 +82,7 @@ spec:
             - region
             type: object
           status:
-            description: CryptoEdgeDeploymentStatus captures observed state.
+            description: KryptonDeploymentStatus captures observed state.
             properties:
               conditions:
                 items:

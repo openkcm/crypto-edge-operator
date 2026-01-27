@@ -35,12 +35,12 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	mcmanager "sigs.k8s.io/multicluster-runtime/pkg/manager"
 
-	platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
-	helmutil "github.com/openkcm/crypto-edge-operator/internal/helmutil"
-	secretprovider "github.com/openkcm/crypto-edge-operator/multicluster/secretprovider"
+	platformv1alpha1 "github.com/openkcm/krypton-operator/api/v1alpha1"
+	helmutil "github.com/openkcm/krypton-operator/internal/helmutil"
+	secretprovider "github.com/openkcm/krypton-operator/multicluster/secretprovider"
 )
 
-// RunCryptoEdgeOperator starts the operator for CryptoEdgeDeployment resources.
+// RunCryptoEdgeOperator starts the operator for KryptonDeployment resources.
 func RunCryptoEdgeOperator() {
 	var namespace string
 	var kubeconfigSecretLabel string
@@ -229,7 +229,7 @@ func ensureWatchCRDsIfRequested(ctx context.Context, cfg *rest.Config, scheme *r
 	if err != nil {
 		return err
 	}
-	if err := EnsureCryptoEdgeDeploymentCRD(ctx, cl); err != nil {
+	if err := EnsureKryptonDeploymentCRD(ctx, cl); err != nil {
 		return err
 	}
 	return nil
@@ -237,8 +237,8 @@ func ensureWatchCRDsIfRequested(ctx context.Context, cfg *rest.Config, scheme *r
 
 func registerHomeController(homeMgr ctrl.Manager, mgr mcmanager.Manager, namespace, chartRepo, chartName, chartVersion string) error {
 	return ctrl.NewControllerManagedBy(homeMgr).
-		Named("cryptoedgedeployments-home").
-		For(&platformv1alpha1.CryptoEdgeDeployment{}).
+		Named("kryptondeployments-home").
+		For(&platformv1alpha1.KryptonDeployment{}).
 		Complete(reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 			log := ctrllog.FromContext(ctx).WithValues("deployment", req.NamespacedName)
 			log.Info("reconcile start")
@@ -342,7 +342,7 @@ func reconcileCED(
 	recorder record.EventRecorder,
 	req reconcile.Request,
 ) (reconcile.Result, error) {
-	setReadyCondition := func(dep *platformv1alpha1.CryptoEdgeDeployment, status metav1.ConditionStatus, reason, message string) {
+	setReadyCondition := func(dep *platformv1alpha1.KryptonDeployment, status metav1.ConditionStatus, reason, message string) {
 		metautil.SetStatusCondition(&dep.Status.Conditions, metav1.Condition{
 			Type:               "Ready",
 			Status:             status,
@@ -352,9 +352,9 @@ func reconcileCED(
 		})
 	}
 
-	const finalizerName = "mesh.openkcm.io/cryptoedgedeployment-finalizer"
+	const finalizerName = "mesh.openkcm.io/kryptondeployment-finalizer"
 
-	deployment := &platformv1alpha1.CryptoEdgeDeployment{}
+	deployment := &platformv1alpha1.KryptonDeployment{}
 	if err := homeMgr.GetClient().Get(ctx, req.NamespacedName, deployment); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("deployment not found, assuming deleted")
@@ -366,7 +366,7 @@ func reconcileCED(
 
 	// Validate inline account info is present
 	if deployment.Spec.Account.Name == "" {
-		deployment.Status.Phase = platformv1alpha1.CryptoEdgeDeploymentPhaseError
+		deployment.Status.Phase = platformv1alpha1.KryptonDeploymentPhaseError
 		deployment.Status.LastMessage = "Spec.account.name must be set"
 		setReadyCondition(deployment, metav1.ConditionFalse, "AccountMissing", deployment.Status.LastMessage)
 		_ = homeMgr.GetClient().Status().Update(ctx, deployment)
@@ -399,7 +399,7 @@ func reconcileCED(
 	edgeCluster, err := mgr.GetCluster(ctx, targetSecretName)
 	if err != nil {
 		log.Error(err, "failed to get edge cluster", "targetRegion", regionName)
-		deployment.Status.Phase = platformv1alpha1.CryptoEdgeDeploymentPhaseError
+		deployment.Status.Phase = platformv1alpha1.KryptonDeploymentPhaseError
 		deployment.Status.LastMessage = "Edge cluster " + regionName + " not available"
 		setReadyCondition(deployment, metav1.ConditionFalse, "EdgeUnavailable", deployment.Status.LastMessage)
 		_ = homeMgr.GetClient().Status().Update(ctx, deployment)
@@ -422,9 +422,9 @@ func rcedHandleDelete(
 	mgr mcmanager.Manager,
 	namespace string,
 	recorder record.EventRecorder,
-	deployment *platformv1alpha1.CryptoEdgeDeployment,
+	deployment *platformv1alpha1.KryptonDeployment,
 ) (reconcile.Result, error) {
-	const finalizerName = "mesh.openkcm.io/cryptoedgedeployment-finalizer"
+	const finalizerName = "mesh.openkcm.io/kryptondeployment-finalizer"
 	targetSecretName, regionName := rcedResolveTarget(ctx, homeMgr, namespace, deployment)
 	log.Info("deletion: routing to edge cluster", "targetRegion", regionName, "targetSecret", targetSecretName)
 	recorder.Event(deployment, corev1.EventTypeNormal, "DeleteStarted", "Routing delete to region "+regionName)
@@ -468,7 +468,7 @@ func rcedHandleDelete(
 	return reconcile.Result{}, nil
 }
 
-func rcedResolveTarget(ctx context.Context, homeMgr ctrl.Manager, namespace string, deployment *platformv1alpha1.CryptoEdgeDeployment) (secretKey, regionName string) {
+func rcedResolveTarget(ctx context.Context, homeMgr ctrl.Manager, namespace string, deployment *platformv1alpha1.KryptonDeployment) (secretKey, regionName string) {
 	regionName = deployment.Spec.Region.Name
 	// Prefer new kubeconfig ref if provided
 	if deployment.Spec.Region.Kubeconfig != nil {
@@ -495,7 +495,7 @@ func rcedEnsureNamespace(
 	log logr.Logger,
 	edgeCluster cluster.Cluster,
 	nsName string,
-	deployment *platformv1alpha1.CryptoEdgeDeployment,
+	deployment *platformv1alpha1.KryptonDeployment,
 	recorder record.EventRecorder,
 ) (reconcile.Result, error) {
 	ns := &corev1.Namespace{}
@@ -524,14 +524,14 @@ func rcedDeployAndStatus(
 	edgeCluster cluster.Cluster,
 	nsName string,
 	chartRepo, chartName, chartVersion string,
-	deployment *platformv1alpha1.CryptoEdgeDeployment,
+	deployment *platformv1alpha1.KryptonDeployment,
 	recorder record.EventRecorder,
-	setReadyCondition func(*platformv1alpha1.CryptoEdgeDeployment, metav1.ConditionStatus, string, string),
+	setReadyCondition func(*platformv1alpha1.KryptonDeployment, metav1.ConditionStatus, string, string),
 ) (reconcile.Result, error) {
 	releaseName := "ced-" + deployment.Name
 	if err := deployHelmChart(ctx, log, edgeCluster, nsName, releaseName, chartRepo, chartName, chartVersion); err != nil {
 		log.Error(err, "helm deployment failed")
-		deployment.Status.Phase = platformv1alpha1.CryptoEdgeDeploymentPhaseError
+		deployment.Status.Phase = platformv1alpha1.KryptonDeploymentPhaseError
 		deployment.Status.LastMessage = "Helm deployment failed: " + err.Error()
 		setReadyCondition(deployment, metav1.ConditionFalse, "HelmFailed", deployment.Status.LastMessage)
 		_ = homeMgr.GetClient().Status().Update(ctx, deployment)
@@ -541,7 +541,7 @@ func rcedDeployAndStatus(
 	log.Info("helm deploy succeeded", "release", releaseName, "namespace", nsName)
 	recorder.Event(deployment, corev1.EventTypeNormal, "HelmDeployed", "Release "+releaseName+" deployed to "+nsName)
 
-	deployment.Status.Phase = platformv1alpha1.CryptoEdgeDeploymentPhaseReady
+	deployment.Status.Phase = platformv1alpha1.KryptonDeploymentPhaseReady
 	deployment.Status.LastMessage = "Successfully deployed to region " + deployment.Spec.Region.Name
 	deployment.Status.LastAppliedChart = chartRepo + "/" + chartName + ":" + chartVersion
 	setReadyCondition(deployment, metav1.ConditionTrue, "Deployed", "Successfully deployed to region "+deployment.Spec.Region.Name)

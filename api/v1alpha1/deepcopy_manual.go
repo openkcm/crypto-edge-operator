@@ -95,24 +95,24 @@ func (in *AccountInfo) DeepCopy() *AccountInfo {
 }
 
 // DeepCopyInto copies the receiver into out. in must be non-nil.
-func (in *CryptoEdgeDeploymentSpec) DeepCopyInto(out *CryptoEdgeDeploymentSpec) {
+func (in *KryptonDeploymentSpec) DeepCopyInto(out *KryptonDeploymentSpec) {
 	*out = *in
 	out.Account = in.Account
 	out.Region = in.Region
 }
 
 // DeepCopy creates a new deep-copied CryptoEdgeDeploymentSpec.
-func (in *CryptoEdgeDeploymentSpec) DeepCopy() *CryptoEdgeDeploymentSpec {
+func (in *KryptonDeploymentSpec) DeepCopy() *KryptonDeploymentSpec {
 	if in == nil {
 		return nil
 	}
-	out := new(CryptoEdgeDeploymentSpec)
+	out := new(KryptonDeploymentSpec)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyInto copies the receiver into out. in must be non-nil.
-func (in *CryptoEdgeDeploymentStatus) DeepCopyInto(out *CryptoEdgeDeploymentStatus) {
+func (in *KryptonDeploymentStatus) DeepCopyInto(out *KryptonDeploymentStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		out.Conditions = make([]metav1.Condition, len(in.Conditions))
@@ -123,11 +123,11 @@ func (in *CryptoEdgeDeploymentStatus) DeepCopyInto(out *CryptoEdgeDeploymentStat
 }
 
 // DeepCopy creates a new deep-copied CryptoEdgeDeploymentStatus.
-func (in *CryptoEdgeDeploymentStatus) DeepCopy() *CryptoEdgeDeploymentStatus {
+func (in *KryptonDeploymentStatus) DeepCopy() *KryptonDeploymentStatus {
 	if in == nil {
 		return nil
 	}
-	out := new(CryptoEdgeDeploymentStatus)
+	out := new(KryptonDeploymentStatus)
 	in.DeepCopyInto(out)
 	return out
 }
@@ -221,17 +221,17 @@ func (in *AccountList) DeepCopyInto(out *AccountList) {
 }
 
 // DeepCopyObject implements runtime.Object for CryptoEdgeDeployment
-func (in *CryptoEdgeDeployment) DeepCopyObject() runtime.Object {
+func (in *KryptonDeployment) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
 	}
-	out := new(CryptoEdgeDeployment)
+	out := new(KryptonDeployment)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyInto copies the receiver into out. in must be non-nil.
-func (in *CryptoEdgeDeployment) DeepCopyInto(out *CryptoEdgeDeployment) {
+func (in *KryptonDeployment) DeepCopyInto(out *KryptonDeployment) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
@@ -240,22 +240,22 @@ func (in *CryptoEdgeDeployment) DeepCopyInto(out *CryptoEdgeDeployment) {
 }
 
 // DeepCopyObject implements runtime.Object for CryptoEdgeDeploymentList
-func (in *CryptoEdgeDeploymentList) DeepCopyObject() runtime.Object {
+func (in *KryptonDeploymentList) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
 	}
-	out := new(CryptoEdgeDeploymentList)
+	out := new(KryptonDeploymentList)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyInto copies the receiver into out. in must be non-nil.
-func (in *CryptoEdgeDeploymentList) DeepCopyInto(out *CryptoEdgeDeploymentList) {
+func (in *KryptonDeploymentList) DeepCopyInto(out *KryptonDeploymentList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
-		out.Items = make([]CryptoEdgeDeployment, len(in.Items))
+		out.Items = make([]KryptonDeployment, len(in.Items))
 		for i := range in.Items {
 			in.Items[i].DeepCopyInto(&out.Items[i])
 		}

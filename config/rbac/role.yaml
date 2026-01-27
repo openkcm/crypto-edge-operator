@@ -4,10 +4,10 @@ metadata:
   name: crypto-edge-operator-role
 rules:
   - apiGroups: ["mesh.openkcm.io"]
-    resources: ["cryptoedgedeployments"]
+    resources: ["kryptondeployments"]
     verbs: ["get", "list", "watch", "update", "patch"]
   - apiGroups: ["mesh.openkcm.io"]
-    resources: ["cryptoedgedeployments/status"]
+    resources: ["kryptondeployments/status"]
     verbs: ["get", "update", "patch"]
   - apiGroups: [""]
     resources: ["secrets"]

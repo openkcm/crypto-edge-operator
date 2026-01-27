@@ -95,7 +95,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/openkcm/crypto-edge-operator)
+        - prefix(github.com/openkcm/krypton-operator)
         - blank
         - dot
         - alias

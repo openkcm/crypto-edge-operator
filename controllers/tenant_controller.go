@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	platformv1alpha1 "github.com/openkcm/crypto-edge-operator/api/v1alpha1"
+	platformv1alpha1 "github.com/openkcm/krypton-operator/api/v1alpha1"
 )
 
 // TenantReconciler reconciles a Tenant object
