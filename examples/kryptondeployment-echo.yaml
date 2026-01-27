@@ -1,0 +1,14 @@
+apiVersion: mesh.openkcm.io/v1alpha1
+kind: KryptonDeployment
+metadata:
+  name: echo-server-edge01
+  namespace: default
+spec:
+  account:
+    name: dev-account
+  region:
+    name: edge01
+    kubeconfig:
+      secret:
+        name: kubeconfig-edge01
+        namespace: platform-system

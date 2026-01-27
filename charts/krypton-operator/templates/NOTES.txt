@@ -1,4 +1,4 @@
-Crypto Edge Operator installed.
+Krypton Operator installed.
 
 CRD check:
 - Verify: kubectl get crd kryptondeployments.mesh.openkcm.io -o name

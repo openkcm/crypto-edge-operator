@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: crypto-edge-operator-role
+  name: krypton-operator-role
 rules:
   - apiGroups: ["mesh.openkcm.io"]
     resources: ["kryptondeployments"]

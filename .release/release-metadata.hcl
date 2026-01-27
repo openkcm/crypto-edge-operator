@@ -1,6 +1,6 @@
 release {
   provider                = "github"
-  url                     = "https://github.com/openkcm/crypto-edge-operator/releases"
+  url                     = "https://github.com/openkcm/krypton-operator/releases"
   changelog               = "CHANGELOG.md"
   tag_prefix              = "v"
   release_name_template   = "Release {{.Version}}"

@@ -12,7 +12,7 @@ Imports must follow the sections defined in `.golangci.yaml`:
 
 1. standard
 2. default
-3. Prefix(github.com/openkcm/crypto-edge-operator)
+3. Prefix(github.com/openkcm/krypton-operator)
 4. blank
 5. dot
 6. alias
@@ -23,13 +23,13 @@ Recommended commands:
 Check which files need formatting:
 
 ```bash
-gci list -s standard -s default -s 'Prefix(github.com/openkcm/crypto-edge-operator)' -s blank -s dot -s alias -s localmodule --skip-generated .
+gci list -s standard -s default -s 'Prefix(github.com/openkcm/krypton-operator)' -s blank -s dot -s alias -s localmodule --skip-generated .
 ```
 
 Apply formatting in-place:
 
 ```bash
-gci write -s standard -s default -s 'Prefix(github.com/openkcm/crypto-edge-operator)' -s blank -s dot -s alias -s localmodule --skip-generated .
+gci write -s standard -s default -s 'Prefix(github.com/openkcm/krypton-operator)' -s blank -s dot -s alias -s localmodule --skip-generated .
 ```
 
 Notes:
