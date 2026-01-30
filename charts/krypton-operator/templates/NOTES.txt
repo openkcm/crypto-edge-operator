@@ -8,10 +8,10 @@ CRD check:
 
 Fix options:
 - Ask a cluster admin to install the CRD:
-  helm template {{ .Release.Name }} {{ .Chart.Path }} --show-only crds/mesh.openkcm.io_kryptondeployments.yaml | kubectl apply -f -
+  helm template {{ .Release.Name }} {{ .Chart.Name }} --show-only crds/mesh.openkcm.io_kryptondeployments.yaml | kubectl apply -f -
 - Or uninstall and perform a fresh install with permissions that can create CRDs:
   helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
-  helm install {{ .Release.Name }} {{ .Chart.Path }} -n {{ .Release.Namespace }} --create-namespace
+  helm install {{ .Release.Name }} {{ .Chart.Name }} -n {{ .Release.Namespace }} --create-namespace
 
 After CRD is present, you can apply KryptonDeployment resources:
 - kubectl apply -f examples/e2e-mini.yaml
