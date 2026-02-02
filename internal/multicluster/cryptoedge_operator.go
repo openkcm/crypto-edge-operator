@@ -812,7 +812,12 @@ func rcedCheckAndHeal(
 		if !allowed {
 			continue
 		}
-		key := client.ObjectKey{Name: obj.GetName(), Namespace: obj.GetNamespace()}
+		// Default empty namespace to target reconcile namespace for namespaced kinds
+		ns := obj.GetNamespace()
+		if ns == "" {
+			ns = namespace
+		}
+		key := client.ObjectKey{Name: obj.GetName(), Namespace: ns}
 		u := &metav1unstructured.Unstructured{}
 		u.SetGroupVersionKind(gvk)
 		if err := apiReader.Get(ctx, key, u); err != nil {
