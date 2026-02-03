@@ -23,6 +23,5 @@ var (
 func init() { // Register API types
 	SchemeBuilder.Register(
 		&KryptonDeployment{}, &KryptonDeploymentList{},
-		&Tenant{}, &TenantList{}, // Keep for backwards compatibility
 	)
 }
