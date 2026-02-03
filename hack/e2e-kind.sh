@@ -139,7 +139,7 @@ touch "$HELM_CONFIG_HOME/repositories.yaml"
 (export HELM_REPOSITORY_CONFIG="$HELM_CONFIG_HOME/repositories.yaml"
  export HELM_REPOSITORY_CACHE="$HELM_CACHE_HOME/repository"
  export HELM_REGISTRY_CONFIG="$HELM_CONFIG_HOME/registry.json"
-(KUBECONFIG=/tmp/home-kind.kubeconfig HELM_CACHE_HOME="$HELM_CACHE_HOME" HELM_CONFIG_HOME="$HELM_CONFIG_HOME" HELM_DATA_HOME="$HELM_DATA_HOME" /tmp/cryptoedge-operator \
+(KUBECONFIG=/tmp/home-kind.kubeconfig HELM_CACHE_HOME="$HELM_CACHE_HOME" HELM_CONFIG_HOME="$HELM_CONFIG_HOME" HELM_DATA_HOME="$HELM_DATA_HOME" /tmp/krypton-operator \
   -namespace "$NAMESPACE" \
   -kubeconfig-label sigs.k8s.io/multicluster-runtime-kubeconfig \
   -kubeconfig-key kubeconfig \
@@ -148,7 +148,7 @@ touch "$HELM_CONFIG_HOME/repositories.yaml"
   -chart-version "$CHART_VERSION") &
 )
 OP_PID=$!
-echo $OP_PID > /tmp/cryptoedge-operator.pid
+echo $OP_PID > /tmp/krypton-operator.pid
 sleep 6
 
 log "apply tenant resource directly to remote cluster (no shadow model)"
@@ -250,7 +250,7 @@ else
 fi
 # Clear PID so cleanup trap doesn't try to kill it again
 OP_PID=""
-rm -f /tmp/cryptoedge-operator.pid
+rm -f /tmp/krypton-operator.pid
 
 # Cleanup temp Helm dirs
 rm -rf "$HELM_TMP_ROOT"

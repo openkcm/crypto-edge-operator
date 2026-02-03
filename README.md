@@ -226,7 +226,7 @@ e2e passed
 
 ### Process Lifecycle & Cleanup
 The e2e harness starts the operator as a background process and now enforces a clean shutdown:
-1. Operator PID recorded in `/tmp/cryptoedge-operator.pid`.
+1. Operator PID recorded in `/tmp/krypton-operator.pid`.
 2. On normal completion or trap (INT/TERM/EXIT) the script sends SIGTERM, waits up to ~5s, then SIGKILL if still running.
 3. `make stop` target is available for manual cleanup if you start with `make run-pid`.
 
@@ -301,7 +301,7 @@ kind create cluster --name home
 kind create cluster --name remote
 # Export remote kubeconfig to file
 kind get kubeconfig --name remote > /tmp/remote.kubeconfig
-./hack/dev-remote-secret.sh /tmp/remote.kubeconfig cryptoedge-operator acme-remote-kubeconfig
+./hack/dev-remote-secret.sh /tmp/remote.kubeconfig krypton-operator acme-remote-kubeconfig
 kubectl apply -f examples/tenant-acme.yaml
 ```
 Copyright (20xx-)20xx SAP SE or an SAP affiliate company and OpenKCM contributors. Please see our [LICENSE](LICENSE) for copyright and license information. Detailed information including third-party components and their licensing/copyright information is available [via the REUSE tool](https://api.reuse.software/info/github.com/openkcm/krypton-operator).

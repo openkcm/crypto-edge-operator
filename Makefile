@@ -15,19 +15,19 @@ run:
 	$(GO) run ./main.go
 
 run-pid: build
-	$(GO) build -o /tmp/cryptoedge-operator ./main.go
+	$(GO) build -o /tmp/krypton-operator ./main.go
 	KUBECONFIG?=$(KUBECONFIG)
-	KUBECONFIG=$$KUBECONFIG /tmp/cryptoedge-operator & echo $$! > /tmp/cryptoedge-operator.pid; echo "operator started PID=$$(cat /tmp/cryptoedge-operator.pid)"
+	KUBECONFIG=$$KUBECONFIG /tmp/krypton-operator & echo $$! > /tmp/krypton-operator.pid; echo "operator started PID=$$(cat /tmp/krypton-operator.pid)"
 
 stop:
-	@if [ -f /tmp/cryptoedge-operator.pid ]; then \
-	  PID=$$(cat /tmp/cryptoedge-operator.pid); \
+	@if [ -f /tmp/krypton-operator.pid ]; then \
+	  PID=$$(cat /tmp/krypton-operator.pid); \
 	  if kill -0 $$PID 2>/dev/null; then \
 	    echo "Stopping operator PID=$$PID"; kill $$PID; \
 	    for i in $$(seq 1 10); do kill -0 $$PID 2>/dev/null || break; sleep 0.3; done; \
 	    if kill -0 $$PID 2>/dev/null; then echo "Force killing PID=$$PID"; kill -9 $$PID; fi; \
 	  else echo "PID file present but process not running"; fi; \
-	  rm -f /tmp/cryptoedge-operator.pid; \
+	  rm -f /tmp/krypton-operator.pid; \
 	else echo "No PID file found"; fi
 
 tidy:
