@@ -39,7 +39,7 @@ go run ./cmd/multicluster \
 ```
 
 ### Changing the Chart
-Crypto Edge Operator
+Krypton Operator
 
 To roll out a different chart or version across all Tenants, restart (or upgrade) the operator with new flag values. The controller computes a fingerprint from repo|name|version and only performs a Helm upgrade if the fingerprint changed.
 
@@ -112,7 +112,7 @@ An annotation `mesh.openkcm.io/fingerprint-<cluster>` is set on the Tenant after
 ---
 
 See `internal/multicluster/example.go` for the reconciliation logic implementing these behaviors.
-# CryptoEdge Operator
+# Krypton Operator
 
 Multi-cluster Kubernetes operator that deploys a Helm chart for each `Tenant` custom resource present on a cluster. The operator ensures the tenant namespace exists and performs Helm install / upgrade with idempotent fingerprint skipping. Tenants are now stored directly on the cluster they target (no shadow propagation model).
 
@@ -254,7 +254,7 @@ Troubleshooting:
 
 ## License
 Apache 2.0 (placeholder)
-# CryptoEdge Operator (MVP)
+# Krypton Operator (MVP)
 
 Multi-cluster operator that installs a Helm chart (e.g., cert-manager) into a tenant-specific namespace on a remote customer cluster when a `Tenant` custom resource is created in the home cluster.
 
@@ -262,7 +262,7 @@ Multi-cluster operator that installs a Helm chart (e.g., cert-manager) into a te
 MVP scaffold. Multi-cluster runtime integration and full Helm implementation marked as TODO.
 
 ## Tenant CRD (MVP Fields)
-See `config/crd/bases/mesh.openkcm.io_tenants.yaml` and `api/v1alpha1/tenant_types.go`.
+Deprecated in current architecture; Tenant types removed from codebase.
 
 ## Quick Dev Loop
 ```bash
@@ -271,7 +271,7 @@ make build
 make run # runs against your current KUBECONFIG/home cluster
 ```
 
-Apply example manifests (once CRD installed):
+Apply example manifests:
 ```bash
 kubectl apply -f examples/remote-kubeconfig-secret.yaml
 kubectl apply -f examples/tenant-acme.yaml
@@ -281,7 +281,7 @@ kubectl apply -f examples/tenant-acme.yaml
 Must contain a key `kubeconfig` with the remote cluster kubeconfig content. See helper script `hack/dev-remote-secret.sh`.
 
 ## Helm Release Naming
-Release name format (proposed): `tenant-<tenantName>`.
+Release name format (proposed): `ced-<deploymentName>`.
 
 ## TODO / Roadmap
 - Implement Helm install/upgrade logic inside reconcile.
@@ -292,7 +292,7 @@ Release name format (proposed): `tenant-<tenantName>`.
 - Proper unit/e2e tests.
 
 ## Assumptions
-Module path assumed: `github.com/cryptoedge/cryptoedgeoperator`. Adjust in `go.mod` if different.
+Module path: `github.com/openkcm/krypton-operator`.
 
 ## Kind-based e2e (future)
 ```bash

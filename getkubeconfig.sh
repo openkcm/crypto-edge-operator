@@ -1,6 +1,6 @@
 export NAMESPACE=garden-kms
 export SHOOT_NAME=worker01
-export KUBECONFIG=/Users/I753738/Downloads/kubeconfig_cryptoedgeoperator.yaml
+export KUBECONFIG=/Users/I753738/Downloads/kubeconfig_krypton-operator.yaml
 kubectl create \
     -f <(printf '{"spec":{"expirationSeconds":3600}}') \
     --raw /apis/core.gardener.cloud/v1beta1/namespaces/${NAMESPACE}/shoots/${SHOOT_NAME}/adminkubeconfig | \

@@ -1,8 +1,8 @@
 SHELL := /bin/zsh
 
 GO ?= go
-IMG ?= cryptoedgeoperator:dev
-PKG := github.com/cryptoedge/cryptoedgeoperator
+IMG ?= krypton-operator:dev
+PKG := github.com/openkcm/krypton-operator
 
 .PHONY: all build run run-pid stop tidy fmt vet generate test e2e-kind e2e-full
 
@@ -12,10 +12,10 @@ build:
 	$(GO) build ./...
 
 run:
-	$(GO) run ./main.go
+	$(GO) run ./cmd/krypton-operator/main.go
 
 run-pid: build
-	$(GO) build -o /tmp/krypton-operator ./main.go
+	$(GO) build -o /tmp/krypton-operator ./cmd/krypton-operator/main.go
 	KUBECONFIG?=$(KUBECONFIG)
 	KUBECONFIG=$$KUBECONFIG /tmp/krypton-operator & echo $$! > /tmp/krypton-operator.pid; echo "operator started PID=$$(cat /tmp/krypton-operator.pid)"
 

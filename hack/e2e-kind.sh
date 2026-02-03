@@ -130,7 +130,7 @@ log "start operator (background)"
 # Require actual chart install (do not skip on non-fatal repo errors for this test).
 unset ALLOW_CHART_SKIP || true
 # Set Helm cache/config/data to writable temp locations for local runs
-HELM_TMP_ROOT="/tmp/cryptoedge-helm"
+HELM_TMP_ROOT="/tmp/cryto-helm"
 mkdir -p "$HELM_TMP_ROOT/cache/helm/repository" "$HELM_TMP_ROOT/config/helm" "$HELM_TMP_ROOT/data/helm"
 export HELM_CACHE_HOME="$HELM_TMP_ROOT/cache/helm"
 export HELM_CONFIG_HOME="$HELM_TMP_ROOT/config/helm"

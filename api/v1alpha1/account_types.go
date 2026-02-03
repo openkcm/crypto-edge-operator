@@ -27,7 +27,7 @@ type AccountStatus struct {
 // +kubebuilder:resource:path=accounts,scope=Namespaced,shortName=acct
 
 // Account is the Schema for the accounts API.
-// An Account can own multiple CryptoEdgeDeployments.
+// An Account can own multiple kryptondeployments.
 type Account struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`

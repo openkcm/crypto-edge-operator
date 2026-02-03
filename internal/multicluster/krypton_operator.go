@@ -47,8 +47,8 @@ import (
 	secretprovider "github.com/openkcm/krypton-operator/multicluster/secretprovider"
 )
 
-// RunCryptoEdgeOperator starts the operator for KryptonDeployment resources.
-func RunCryptoEdgeOperator() {
+// RunKryptonOperator starts the operator for KryptonDeployment resources.
+func RunKryptonOperator() {
 	var namespace string
 	var kubeconfigSecretLabel string
 	var kubeconfigSecretKey string

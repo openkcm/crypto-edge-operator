@@ -194,7 +194,7 @@ discovery:
   # kubeconfigLabel: deprecated (no longer used)
   # kubeconfigKey: deprecated (no longer used)
 
-# Watch cluster (home) selection for CRD management and CryptoEdgeDeployment watching.
+# Watch cluster (home) selection for CRD management and KryptonDeployments watching.
 # Preferred: provide kubeconfig via Secret reference in the current cluster.
 watchCluster:
   context: ""          # optional context; defaults to kubeconfig current-context

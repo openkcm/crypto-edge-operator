@@ -101,7 +101,7 @@ func (in *KryptonDeploymentSpec) DeepCopyInto(out *KryptonDeploymentSpec) {
 	out.Region = in.Region
 }
 
-// DeepCopy creates a new deep-copied CryptoEdgeDeploymentSpec.
+// DeepCopy creates a new deep-copied kryptondeploymentspec.
 func (in *KryptonDeploymentSpec) DeepCopy() *KryptonDeploymentSpec {
 	if in == nil {
 		return nil
@@ -122,7 +122,7 @@ func (in *KryptonDeploymentStatus) DeepCopyInto(out *KryptonDeploymentStatus) {
 	}
 }
 
-// DeepCopy creates a new deep-copied CryptoEdgeDeploymentStatus.
+// DeepCopy creates a new deep-copied kryptondeploymentstatus.
 func (in *KryptonDeploymentStatus) DeepCopy() *KryptonDeploymentStatus {
 	if in == nil {
 		return nil
@@ -220,7 +220,7 @@ func (in *AccountList) DeepCopyInto(out *AccountList) {
 	}
 }
 
-// DeepCopyObject implements runtime.Object for CryptoEdgeDeployment
+// DeepCopyObject implements runtime.Object for KryptonDeployments
 func (in *KryptonDeployment) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
@@ -239,7 +239,7 @@ func (in *KryptonDeployment) DeepCopyInto(out *KryptonDeployment) {
 	in.Status.DeepCopyInto(&out.Status)
 }
 
-// DeepCopyObject implements runtime.Object for CryptoEdgeDeploymentList
+// DeepCopyObject implements runtime.Object for KryptonDeploymentsList
 func (in *KryptonDeploymentList) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
