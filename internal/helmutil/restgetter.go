@@ -1,3 +1,20 @@
+// Package helmutil provides small helpers and adapters for integrating Helm
+// into a Kubernetes operator.
+//
+// Why RemoteRESTClientGetter exists:
+//   - Helm's action.Configuration.Init expects a RESTClientGetter interface to
+//     construct API clients, discovery, and REST mappers.
+//   - In an operator we already hold a fully constructed *rest.Config for the
+//     target (often remote/edge) cluster via controller-runtime. Reading a local
+//     kubeconfig file is undesirable or impossible inside the operator pod.
+//   - This adapter bridges Helm's expectations with the operator's reality:
+//     it wraps the existing *rest.Config, sets a sensible default namespace for
+//     objects that omit metadata.namespace, and lazily constructs discovery and
+//     RESTMapper components.
+//   - Practical outcome: The operator can install/upgrade/uninstall Helm charts
+//     directly against remote clusters using in-memory configuration, without
+//     depending on kubeconfig files. See usage in the deploy/uninstall paths
+//     of the multicluster operator.
 package helmutil
 
 import (

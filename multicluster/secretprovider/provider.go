@@ -1,3 +1,15 @@
+// Package secretprovider implements a multicluster Provider that resolves
+// edge clusters from kubeconfig Secrets. It lets the operator construct
+// controller-runtime Cluster instances on demand, keyed by secret name
+// (optionally prefixed with a namespace as "ns/name").
+//
+// Why this Provider exists:
+//   - In multi-cluster scenarios, edge cluster credentials are typically stored
+//     as Secrets. The operator needs to turn those into usable clients quickly.
+//   - This Provider lazily creates and caches Cluster objects from embedded
+//     kubeconfigs, avoiding global kubeconfig files and minimizing startup work.
+//   - It supports namespaced keys and a default namespace to keep secret lookup
+//     flexible while remaining simple.
 package secretprovider
 
 import (

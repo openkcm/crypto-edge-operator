@@ -1,5 +1,10 @@
 package multicluster
 
+// File overview: Ensures the KryptonDeployment CRD is present on the watch (home)
+// cluster at startup. If missing, the embedded CRD manifest is applied with
+// simple retries to tolerate transient API errors. This avoids a manual
+// bootstrap step and improves resilience across environments.
+
 import (
 	"context"
 	"errors"

@@ -1,5 +1,16 @@
 package multicluster
 
+// File overview: Core operator logic to reconcile KryptonDeployment resources and
+// orchestrate work across a home cluster and remote edge clusters.
+//
+// Entrypoint responsibilities:
+//   - Parse flags/env to determine watch scope, kubeconfig sources, and chart info.
+//   - Build managers: a home manager (watching KryptonDeployment) and a multicluster
+//     manager that uses a secret-based Provider for edge clusters.
+//   - Route each deployment to a target edge cluster, ensure namespace, deploy/upgrade
+//     Helm charts, and update status conditions for readiness.
+//   - Provide health endpoints and optional CRD bootstrap at startup for resilience.
+
 import (
 	"context"
 	"flag"
